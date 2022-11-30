@@ -1,3 +1,18 @@
+IMPORTANT NOTE:
+===============
+
+This is Horea Haitonic's 'PyCmd' with following modifications/extensions:
+
+- Add overwritable "prompt_prefix", e.g., for prefixing the git/svn prompts
+  with a named environment setup ("[Py3] [master]>")
+- Add overwritable "cvs_timeout", because the cvs status check takes several
+  seconds each time on huge source projects
+- Add default prompt which looks more like the original Windows command prompt
+- Redefine 'bash' as the default completion mode
+
+ORIGINAL README:
+================
+
 1. What is PyCmd?  
 -----------------
 PyCmd is a 'smart' command prompt extension for Windows' cmd.exe; its purpose is

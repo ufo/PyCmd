@@ -134,16 +134,7 @@ def main():
     color.Back.DEFAULT = console.get_current_background()
 
     if not behavior.quiet_mode:
-        # Print some splash text
-        arch_names = { '32bit': 'x86', '64bit': 'x64' }
-        bits = platform.architecture()[0]
-        try:
-            from buildinfo import build_date
-        except ImportError as ie:
-            build_date = '<no build date>'
-        print()
-        print('Welcome to PyCmd %s-%s!' % (build_date, arch_names[bits]))
-        print()
+        appearance.welcome()
 
     # Run an empty command to initialize environment
     run_command(['echo', '>', 'NUL'])
@@ -234,7 +225,7 @@ def main():
             if is_ctrl_pressed(rec) and not is_alt_pressed(rec):  # Ctrl-Something
                 if rec.Char == chr(4):                  # Ctrl-D
                     if state.before_cursor + state.after_cursor == '':
-                        internal_exit('\r\nBye!')
+                        internal_exit('\r\n%s' % appearance.good_bye())
                     else:
                         state.handle(ActionCode.ACTION_DELETE)
                 elif rec.Char == chr(31):                   # Ctrl-_
@@ -572,7 +563,7 @@ def run_command(tokens):
             del os.environ[var]
 
     if tokens[0] == 'exit':
-        internal_exit('Bye!')
+        internal_exit(appearance.good_bye())
     elif is_pure_cd(tokens):
         # This is a single CD command -- use our custom, more handy CD
         internal_cd([unescape(t) for t in tokens[1:]])

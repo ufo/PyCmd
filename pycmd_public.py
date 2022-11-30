@@ -6,7 +6,8 @@ unchanged (interface-wise) throughout later versions.
 """
 from __future__ import print_function
 
-import os, sys, common, console
+from datetime import datetime
+import os, sys, common, console, platform
 
 py2 = sys.version_info[0] == 2
 
@@ -89,8 +90,71 @@ def find_updir(name, path=None):
     return found
 
 
+def default_welcome():
+    """
+    Print some splash text.
+    """
+    arch_names = { '32bit': 'x86', '64bit': 'x64' }
+    bits = platform.architecture()[0]
+    try:
+        from buildinfo import build_date
+    except ImportError as ie:
+        build_date = '<no build date>'
+    print()
+    print('Welcome to PyCmd %s-%s!' % (build_date, arch_names[bits]))
+    print()
+
+
+def default_good_bye():
+    """
+    Return some good-bye text.
+    """
+    return "Bye!"
+
+
+def windows_cmd_welcome():
+    """
+    Print a welcome text similar to the default one of Windows cmd.exe
+        Microsoft Windows [Version 10.0.22000]
+        (c) Microsoft Corporation. All rights reserved.
+    """
+    print("Microsoft Windows [Version %s]" % platform.version())
+    print("(c) %s Microsoft Corporation. All rights reserved." % datetime.now().year)
+    print("[PyCmd: " + color.Fore.GREEN + "ON" + color.Fore.DEFAULT + "]")
+
+
+def windows_cmd_good_bye():
+    """
+    Return some good-bye text fitting to the windows_cmd_welcome function.
+    """
+    return "[PyCmd: " + color.Fore.RED + "OFF" + color.Fore.DEFAULT + "]"
+
+
 def prompt_prefix():
     return ""
+
+
+def windows_cmd_prompt():
+    """
+    Return a prompt similar to the default one of Windows cmd.exe.
+    """
+    path = os.getcwd()
+    if py2:
+        path = path.decode(sys.getfilesystemencoding())
+    return color.Fore.DEFAULT + path + '>'
+
+
+def windows_cmd_prompt_short():
+    """
+    Return a prompt similar to the default one of Windows cmd.exe,
+    but shortening very long directory names.
+    """
+    import win32api
+    path = os.getcwd()
+    if py2:
+        path = path.decode(sys.getfilesystemencoding())
+    path = win32api.GetShortPathName(path)
+    return color.Fore.DEFAULT + path + '>'
 
 
 def simple_prompt():
@@ -337,13 +401,17 @@ class _Appearance(_Settings):
 
         # Some predefined prompts
         self.prompt_prefix = prompt_prefix
-        self.simple_prompt = simple_prompt
+        self.simple_prompt = windows_cmd_prompt  # simple_prompt
         self.git_prompt = git_prompt
         self.svn_prompt = svn_prompt
         self.cvs_timeout = 0.25
 
         # Color configuration
         self.colors = self._ColorSettings()
+
+        # Welcome and good-bye variants
+        self.welcome = windows_cmd_welcome  # default_welcome
+        self.good_bye = windows_cmd_good_bye  # default_good_bye
 
     def sanitize(self):
         if not callable(self.prompt):

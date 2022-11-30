@@ -3,12 +3,15 @@ IMPORTANT NOTE:
 
 This is Horea Haitonic's 'PyCmd' with following modifications/extensions:
 
-- Add overwritable "prompt_prefix", e.g., for prefixing the git/svn prompts
-  with a named environment setup ("[Py3] [master]>")
-- Add overwritable "cvs_timeout", because the cvs status check takes several
-  seconds each time on huge source projects
-- Add default prompt which looks more like the original Windows command prompt
-- Redefine 'bash' as the default completion mode
+- Additional customizing setting "appearance.prompt_prefix", e.g., for prefixing
+  all prompts with a named global environment setup ("[Py3] [master]>")
+- Additional customizing setting "appearance.cvs_timeout", because on huge source
+  projects the SVN/Git status checks take several seconds each time
+- Additional customizing setting "appearance.welcome" for defining a custom
+  welcome splash text. The default one imitates the one of the default Windows
+  cmd.exe, plus printing a "[PyCmd: ON]"
+- Additional customizing setting "appearance.good_bye" for defining a custom
+  good-bye text. The default one prints a "[PyCmd: OFF]"
 
 ORIGINAL README:
 ================

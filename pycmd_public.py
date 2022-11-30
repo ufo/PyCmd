@@ -7,7 +7,7 @@ unchanged (interface-wise) throughout later versions.
 from __future__ import print_function
 
 from datetime import datetime
-import os, sys, common, console, platform
+import os, sys, common, console
 
 py2 = sys.version_info[0] == 2
 
@@ -94,6 +94,7 @@ def default_welcome():
     """
     Print some splash text.
     """
+    import platform
     arch_names = { '32bit': 'x86', '64bit': 'x64' }
     bits = platform.architecture()[0]
     try:
@@ -115,10 +116,11 @@ def default_good_bye():
 def windows_cmd_welcome():
     """
     Print a welcome text similar to the default one of Windows cmd.exe
-        Microsoft Windows [Version 10.0.22000]
+        Microsoft Windows [Version 10.0.22000.1219]
         (c) Microsoft Corporation. All rights reserved.
     """
-    print("Microsoft Windows [Version %s]" % platform.version())
+    finished, stdout, stderr = run("cmd /c ver", 1)
+    print(stdout.strip())
     print("(c) %s Microsoft Corporation. All rights reserved." % datetime.now().year)
     print("[PyCmd: " + color.Fore.GREEN + "ON" + color.Fore.DEFAULT + "]")
 

@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys, os, tempfile, signal, time, traceback, codecs, platform
 import win32console, win32gui, win32con
 
@@ -18,6 +20,8 @@ from console import remove_escape_sequences
 from Window import Window
 from pycmd_public import color, appearance, behavior
 from common import apply_settings, sanitize_settings
+
+py2 = sys.version_info[0] == 2
 
 
 pycmd_data_dir = None
@@ -135,11 +139,11 @@ def main():
         bits = platform.architecture()[0]
         try:
             from buildinfo import build_date
-        except ImportError, ie:
+        except ImportError as ie:
             build_date = '<no build date>'
-        print
-        print 'Welcome to PyCmd %s-%s!' % (build_date, arch_names[bits])
-        print
+        print()
+        print('Welcome to PyCmd %s-%s!' % (build_date, arch_names[bits]))
+        print()
 
     # Run an empty command to initialize environment
     run_command(['echo', '>', 'NUL'])
@@ -152,7 +156,7 @@ def main():
         auto_select = False
         force_repaint = True
         dir_hist.shown = False
-        print
+        print()
 
         while True:
             # Update console title and environment
@@ -298,7 +302,7 @@ def main():
                         state.handle(ActionCode.ACTION_REDO)
                     auto_select = False
             elif is_alt_pressed(rec) and not is_ctrl_pressed(rec):      # Alt-Something
-                if rec.VirtualKeyCode in [37, 39] + range(49, 59):
+                if rec.VirtualKeyCode in [37, 39] + list(range(49, 59)):
                     if state.before_cursor + state.after_cursor == '':  # Dir history
                         state.reset_prev_line()
                         if rec.VirtualKeyCode == 37:            # Alt-Left
@@ -463,8 +467,8 @@ def main():
                             state.reset_prev_line()
                         else:
                             window_height = get_viewport()[3] - get_cursor()[1] - 1
-                            if window_height < (get_viewport()[3] - get_viewport()[1]) / 3:
-                                window_height = (get_viewport()[3] - get_viewport()[1]) / 3
+                            if window_height < int((get_viewport()[3] - get_viewport()[1]) / 3):
+                                window_height = int((get_viewport()[3] - get_viewport()[1]) / 3)
                             w = Window(suggestions, pattern, height=window_height)
                             w.display()
                             w.reset_cursor()
@@ -513,7 +517,7 @@ def main():
         if tokens == [] or tokens[0] == '':
             continue
         else:
-            print
+            print()
             if not is_pure_cd(tokens):
                 dir_hist.keep = True
             run_command(tokens)
@@ -546,7 +550,7 @@ def internal_cd(args):
                 target = target.rstrip(u'\\')
             target = expand_env_vars(target.strip(u'"').strip(u' '))
             os.chdir(target.encode(sys.getfilesystemencoding()))
-    except OSError, error:
+    except OSError as error:
         stdout.write(u'\n' + str(error).replace('\\\\', '\\').decode(sys.getfilesystemencoding()))
     os.environ['CD'] = os.getcwd()
 
@@ -555,7 +559,7 @@ def internal_exit(message = ''):
     """The EXIT command, with an optional goodbye message"""
     deinit()
     if ((not behavior.quiet_mode) and message != ''):
-        print message
+        print(message)
     sys.exit()
 
 
@@ -639,7 +643,7 @@ def run_in_cmd(tokens):
         # The syntax of the command is incorrect, cmd would refuse to execute it
         # altogether; in order to we replicate the error message, we run a simple
         # invalid command and return
-        print
+        print()
         os.system('echo |')
         return
 
@@ -652,7 +656,9 @@ def run_in_cmd(tokens):
             command += u' & echo ' + var + u'="%' + var + u'%" >> "' + tmpfile + '"'
         command += u'& <nul (set /p xxx=CD=) >>"' + tmpfile + u'" & cd >>"' + tmpfile + '"'
         command += u'"'
-        os.system(command.encode(sys.getfilesystemencoding()))
+        if py2:
+            command = command.encode(sys.getfilesystemencoding())
+        os.system(command)
 
     # Update environment and state
     new_environ = {}
@@ -671,7 +677,9 @@ def run_in_cmd(tokens):
                 del os.environ[variable]
         for variable in new_environ:
             os.environ[variable] = new_environ[variable]
-    cd = os.environ['CD'].decode(stdout.encoding)
+    cd = os.environ['CD']
+    if py2:
+        cd = cd.decode(stdout.encoding)
     os.chdir(cd.encode(sys.getfilesystemencoding()))
 
 
@@ -722,25 +730,25 @@ def read_history(filename):
         history = [line.rstrip(u'\n\r') for line in history_file.readlines()]
         history_file.close()
     else:
-        print 'Warning: Can\'t open ' + os.path.basename(filename) + '!'
+        print('Warning: Can\'t open ' + os.path.basename(filename) + '!')
         history = []
     return history
 
 
 def print_usage():
     """Print usage information"""
-    print 'Usage:'
-    print '\t PyCmd [-i script] [-t title] ( [-c command] | [-k command] | [-h] )'
-    print
-    print '\t\t-c command \tRun command, then exit'
-    print '\t\t-k command \tRun command, then continue to the prompt'
-    print '\t\t-t title \tShow title in window caption'
-    print '\t\t-i script \tRun additional init/config script'
-    print '\t\t-q\t\tQuiet (suppress messages)'
-    print '\t\t-h \t\tShow this help'
-    print
-    print 'Note that you can use \'/\' instead of \'-\', uppercase instead of '
-    print 'lowercase and \'/?\' instead of \'-h\''
+    print('Usage:')
+    print('\t PyCmd [-i script] [-t title] ( [-c command] | [-k command] | [-h] )')
+    print()
+    print('\t\t-c command \tRun command, then exit')
+    print('\t\t-k command \tRun command, then continue to the prompt')
+    print('\t\t-t title \tShow title in window caption')
+    print('\t\t-i script \tRun additional init/config script')
+    print('\t\t-q\t\tQuiet (suppress messages)')
+    print('\t\t-h \t\tShow this help')
+    print()
+    print('Note that you can use \'/\' instead of \'-\', uppercase instead of ')
+    print('lowercase and \'/?\' instead of \'-h\'')
 
     
 # cx_freeze sometimes messes this (no idea why...)
@@ -752,22 +760,22 @@ if __name__ == '__main__':
     try:
         init()
         main()
-    except Exception, e:        
+    except Exception as e:
         report_file_name = (pycmd_data_dir
                             + '\\crash-' 
                             + time.strftime('%Y%m%d_%H%M%S') 
                             + '.log')
-        print '\n'
-        print '************************************'
-        print 'PyCmd has encountered a fatal error!'
-        print
+        print('\n')
+        print('************************************')
+        print('PyCmd has encountered a fatal error!')
+        print()
         report_file = open(report_file_name, 'w')
         traceback.print_exc(file=report_file)
         report_file.close()
         traceback.print_exc()
-        print 
-        print 'Crash report written to:\n  ' + report_file_name
-        print
-        print 'Press any key to exit... '
-        print '************************************'
+        print()
+        print('Crash report written to:\n  ' + report_file_name)
+        print()
+        print('Press any key to exit... ')
+        print('************************************')
         read_input()

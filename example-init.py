@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 #
 # Example init.py for documentation purposes
 #
@@ -24,7 +26,7 @@
 # executed in PyCmd's Python context; therefore, you can do virtually anything
 # you want here, like play a song, format your hard-disk or show some custom
 # greeting:
-print '\n***  Hi, there!  ***'
+print('\n***  Hi, there!  ***')
 
 # pycmd_public is a collection of public functions, constants and objects that
 # PyCmd "exports" for use within init.py files; you can safely rely on these

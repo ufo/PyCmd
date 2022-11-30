@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from CommandHistory import CommandHistory
 from common import fuzzy_match, word_sep
 import win32clipboard as wclip
@@ -212,7 +214,7 @@ class InputState:
                 self.undo_emacs.append((self.prev_before_cursor, self.prev_after_cursor))
                 self.undo_emacs_index = -1
 
-        # print "\n", self.undo, "    ", self.redo, "\n"
+        # print("\n", self.undo, "    ", self.redo, "\n")
 
         self.last_action = action
 
@@ -410,7 +412,7 @@ class InputState:
         self.undo = []
         self.redo = []
 
-        # print '\n\n', history, history_index, '\n\n'
+        # print('\n\n', history, history_index, '\n\n')
         if not self.history.trail:
             # Start search
             self.history.start(self.before_cursor + self.after_cursor)
@@ -419,8 +421,8 @@ class InputState:
         self.before_cursor = self.history.current()[0]
         self.after_cursor = ''
 
-        #print '\n\nHistory:', self.history
-        #print 'Trail:', self.history_trail, '\n\n'
+        #print('\n\nHistory:', self.history)
+        #print('Trail:', self.history_trail, '\n\n')
 
         self.reset_selection()
 
@@ -594,7 +596,7 @@ class InputState:
                         else:
                             no_context_matches.append(word)
 
-            # print '\n\n', no_context_matches, context_matches, '\n\n'
+            # print('\n\n', no_context_matches, context_matches, '\n\n')
 
             self.expand_stub = expand_stub
             matches_set = {}
@@ -602,7 +604,7 @@ class InputState:
                                    for e in context_matches + no_context_matches
                                    if e not in matches_set] + [self.expand_stub]
             self.expand_matches.reverse()
-            # print '\n\n', self.expand_matches, '\n\n'
+            # print('\n\n', self.expand_matches, '\n\n')
 
         match = self.expand_matches[-1]
         old_len_before_cursor = len(self.before_cursor)

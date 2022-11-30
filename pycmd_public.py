@@ -4,7 +4,11 @@ Public constants, objects and utilities exported by PyCmd.
 These are meant to be used in init.py files; users can rely on them being kept
 unchanged (interface-wise) throughout later versions.
 """
+from __future__ import print_function
+
 import os, sys, common, console
+
+py2 = sys.version_info[0] == 2
 
 def abbrev_path(path = None):
     """
@@ -22,7 +26,9 @@ def abbrev_path(path = None):
     underscore_separation or "whitespace separation".
     """
     if not path:
-        path = os.getcwd().decode(sys.getfilesystemencoding())
+        path = os.getcwd()
+        if py2:
+            path = path.decode(sys.getfilesystemencoding())
         path = path[0].upper() + path[1:]
     current_dir = path[ : 3]
     path = path[3 : ]
@@ -99,6 +105,8 @@ def git_prompt():
         shell=True,
         stdout=subprocess.PIPE,
         stderr=-1).communicate()[0]
+    if not py2:
+        stdout = stdout.decode()
     lines = stdout.split('\n')
     match_branch = re.match('## (.+)\.\.\.(.+)?.*', lines[0])
     if not match_branch:
@@ -149,6 +157,8 @@ def svn_prompt():
     path = abbrev_path()
     stdout = subprocess.Popen('svn stat -q', shell=True,
                               stdout=subprocess.PIPE, stderr=-1).communicate()[0]
+    if not py2:
+        stdout = stdout.decode()
     dirty = any(line[0] in ['M', 'A', 'D'] for line in stdout)
     prompt += color.Fore.YELLOW + '['
     if dirty:
@@ -308,7 +318,7 @@ class _Appearance(_Settings):
 
     def sanitize(self):
         if not callable(self.prompt):
-            print 'Prompt function doesn\'t look like a callable; reverting to PyCmd\'s default prompt'
+            print('Prompt function doesn\'t look like a callable; reverting to PyCmd\'s default prompt')
             self.prompt = simple_prompt
 
 
@@ -324,7 +334,7 @@ class Behavior(_Settings):
 
     def sanitize(self):
         if not self.completion_mode in ['bash', 'zsh']:
-            print 'Invalid setting "' + self.completion_mode + '" for "completion_mode" -- using default "zsh"'
+            print('Invalid setting "' + self.completion_mode + '" for "completion_mode" -- using default "zsh"')
             self.completion_mode = 'zsh'
 
 

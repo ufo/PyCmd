@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import re
 from common import fuzzy_match
 
@@ -22,7 +24,7 @@ class CommandHistory:
         """
         Start history navigation
         """
-        #print '\n\nStart\n\n'
+        #print('\n\nStart\n\n')
         self.filter = line
 
         # Create a list of regex patterns to use when navigating the history
@@ -70,7 +72,7 @@ class CommandHistory:
         # Traverse the history and build the filtered list
         self.filtered_list = []
         for pattern in patterns:
-            #print '\n\n', pattern, '\n\n'
+            #print('\n\n', pattern, '\n\n')
             for line in reversed(self.list):
                 if line in [l for (l, p) in self.filtered_list]:
                     # We already added this line, skip
@@ -80,7 +82,7 @@ class CommandHistory:
                 matches = re.search(pattern, line, re.IGNORECASE)
                 if matches:
                     self.filtered_list.insert(0, (line, [matches.span(i) for i in range(1, matches.lastindex + 1)]))
-                    #print '\n\n', self.filtered_list[-1], '\n\n'
+                    #print('\n\n', self.filtered_list[-1], '\n\n')
 
         # We use the trail to navigate back in the same order
         self.trail = [(self.filter, [(0, len(self.filter))])]
@@ -114,7 +116,7 @@ class CommandHistory:
     def add(self, line):
         """Add a new line to the history"""
         if line:
-            #print 'Adding "' + line + '"'
+            #print('Adding "' + line + '"')
             if line in self.list:
                 self.list.remove(line)
             self.list.append(line)

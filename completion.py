@@ -4,6 +4,8 @@
 #    2) names of environment variables
 #
 
+from __future__ import print_function
+
 import sys, os, re
 from common import tokenize, expand_env_vars, has_exec_extension, strip_extension
 from common import contains_special_char, starts_with_special_char
@@ -55,7 +57,7 @@ def complete_file_simple(line):
     if path_to_complete == '' and token != '' and token[0] == path_sep:
         path_to_complete = path_sep
 
-    # print '\n\n', path_to_complete, '---', prefix, '\n\n'
+    #(print '\n\n', path_to_complete, '---', prefix, '\n\n')
 
     if path_to_complete == '':
         dir_to_complete = os.getcwd()
@@ -205,13 +207,13 @@ def complete_file_alternate(line):
 
     path_sep = '/' if '/' in expand_env_vars(token) else '\\'
 
-    # print '\n\nTokens:', tokens, '\n\nCompleting:', token, '\n\n'
+    # print('\n\nTokens:', tokens, '\n\nCompleting:', token, '\n\n')
 
     (path_to_complete, _, prefix) = token.rpartition(path_sep)
     if path_to_complete == '' and token != '' and token[0] == path_sep:
         path_to_complete = path_sep
 
-    # print '\n\n', path_to_complete, '---', prefix, '\n\n'
+    # print('\n\n', path_to_complete, '---', prefix, '\n\n')
 
     if path_to_complete == '':
         dir_to_complete = os.getcwd()
@@ -291,7 +293,7 @@ def complete_wildcard(line):
     if path_to_complete == '' and token != '' and token[0] == path_sep:
         path_to_complete = path_sep
 
-    # print '\n\n', path_to_complete, '---', prefix, '\n\n'
+    # print('\n\n', path_to_complete, '---', prefix, '\n\n')
 
     if path_to_complete == '':
         dir_to_complete = os.getcwd()

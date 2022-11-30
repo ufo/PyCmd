@@ -3,6 +3,9 @@ from console import get_cursor, move_cursor, get_buffer_size
 from sys import stdout
 from pycmd_public import appearance, color
 
+py2 = sys.version_info[0] == 2
+
+
 class DirHistory:
     """
     Handle a history of visited directories, somewhat similar to a browser
@@ -57,7 +60,7 @@ class DirHistory:
             os.chdir(self.locations[self.index])
             changed = True
             self.keep = True  # keep saved entries even if no command is executed
-        except OSError, error:
+        except OSError as error:
             stdout.write('\n  ' + str(error) + '\n')
             self.locations.pop(self.index) 
             self.index -= 1
@@ -69,7 +72,9 @@ class DirHistory:
 
     def visit_cwd(self):
         """Add the current directory to the history of visited locations"""
-        cwd = os.getcwd().decode(sys.getfilesystemencoding())
+        cwd = os.getcwd()
+        if py2:
+            cwd = cwd.decode(sys.getfilesystemencoding())
         if self.locations and cwd == self.locations[self.index]:
             return
 
@@ -124,7 +129,7 @@ class DirHistory:
         for i in range(len(self.locations)):
             location = self.locations[i]
             prefix = ' %d  ' % (i + 1)
-            lines_written += (len(prefix + location) / buffer_size[0] + 1)
+            lines_written += int((len(prefix + location) / buffer_size[0] + 1))
             if i != self.index:
                 # Non-selected entry, simply print 
                 stdout.write(prefix + location + '\n')
@@ -151,7 +156,7 @@ class DirHistory:
         """
         (buf_width, buf_height) = get_buffer_size()
         (cur_x, cur_y) = get_cursor()
-        lines_written = len(line) / buf_width + 1
+        lines_written = int(len(line) / buf_width + 1)
         if cur_y + lines_written > buf_height:
             self.offset_from_bottom += cur_y + lines_written - buf_height
 

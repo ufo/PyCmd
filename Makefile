@@ -45,7 +45,7 @@ dist_w64: clean $(SRC) doc
 # cx_freeze on Py64 copies the wrong pywintypes27.dll, overwrite it here:
 	$(CP) $(PYTHONHOME_W64)\Lib\site-packages\pywin32_system32\pywintypes27.dll PyCmd\lib
 	(echo Release $(BUILD_VERSION) $(BUILD_DATE): && echo. && type NEWS.txt) > PyCmd\NEWS.txt
-	$(ZIP) -r PyCmd-$(BUILD_VERSION)-$(BUILD_DATE)-w64.zip PyCmd
+	$(ZIP) a -r PyCmd-$(BUILD_VERSION)-$(BUILD_DATE)-w64.zip PyCmd
 
 .PHONY: clean
 clean:

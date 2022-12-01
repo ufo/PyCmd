@@ -205,7 +205,7 @@ behavior.max_dir_history_length = 9
 #     r"C:\Users\someone",
 #     r"C:\Tools"
 # ]
-# behavior.directory_favorites = """
+# behavior.directory_favorites = r"""
 # C:\Users\someone
 # C:\Tools
 # """

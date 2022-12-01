@@ -3,20 +3,23 @@ IMPORTANT NOTE:
 
 This is Horea Haitonic's 'PyCmd' with following additional config settings:
 
-- appearance.prompt_prefix: E.g., for prefixing all prompts with a named
-    global environment setup ("[Py3] [master]>").
-- appearance.cvs_timeout: Because on huge source projects the SVN/Git
-    status checks take several seconds each time.
+- appearance.prompt_prefix: For prefixing all prompts with a named
+      global environment setup (e.g., "[Py3] [master]>").
+- appearance.cvs_timeout: Skip the SVN/Git status check after N seconds
+      because on huge source projects it might take several seconds
+      each time.
 - appearance.welcome: For defining a custom welcome splash text. The
-    default one imitates the one of the default Windows cmd.exe, plus
-    printing a "[PyCmd: ON]".
+      default one imitates the one of the default Windows cmd.exe, plus
+      printing a "[PyCmd: ON]".
 - appearance.good_bye: For defining a custom good-bye text. The default
-    one prints a "[PyCmd: OFF]".
-- behavior.max_dir_history_length: For modifying the default value of 9.
-- behavior.directory_favorites: For defining string with a fixed list of
-    directories separated via linebreaks (or alternatively a python list
-    of strings) which can be listed and navigated just like the direcory
-    history, but with SHIFT + ALT + D.
+      one prints a "[PyCmd: OFF]".
+- behavior.max_dir_history_length: For modifying the previously fixed
+      internal default value of 9.
+- behavior.directory_favorites: For defining a string with a fixed list
+      of directories separated via linebreaks (or alternatively a Python
+      list of strings) which can be listed and navigated just like the
+      direcory history, but with SHIFT + ALT + D, while the default
+      direcory history can be only controled via ALT + D.
 
 ORIGINAL README:
 ================

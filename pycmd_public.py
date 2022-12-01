@@ -94,20 +94,28 @@ def find_updir(name, path=None):
         
     return found
 
+def get_build_info():
+    import platform
+    arch_names = { '32bit': 'x86', '64bit': 'x64' }
+    bits = platform.architecture()[0]
+    arch = arch_names[bits]
+    try:
+        from buildinfo import build_version, build_date
+    except ImportError as ie:
+        build_version = None
+        build_date = None
+    return build_version, build_date, arch
+
 
 def default_welcome():
     """
     Print some splash text.
     """
-    import platform
-    arch_names = { '32bit': 'x86', '64bit': 'x64' }
-    bits = platform.architecture()[0]
-    try:
-        from buildinfo import build_date
-    except ImportError as ie:
+    build_version, build_date, arch = get_build_info()
+    if not build_date:
         build_date = '<no build date>'
     print()
-    print('Welcome to PyCmd %s-%s!' % (build_date, arch_names[bits]))
+    print('Welcome to PyCmd %s-%s!' % (build_date, arch))
     print()
 
 
@@ -127,7 +135,12 @@ def windows_cmd_welcome():
     finished, stdout, stderr = run("cmd /c ver", 1)
     print(stdout.strip())
     print("(c) %s Microsoft Corporation. All rights reserved." % datetime.now().year)
-    print("[PyCmd: " + color.Fore.GREEN + "ON" + color.Fore.DEFAULT + "]")
+    build_version, build_date, arch = get_build_info()
+    if build_version and build_date:
+        version_str = "%s-%s-%s" % (build_version, arch, build_date)
+    else:
+        version_str = "<no build info>-%s" % (arch)
+    print("[PyCmd " + version_str + ": " + color.Fore.GREEN + "ON" + color.Fore.DEFAULT + "]")
 
 
 def windows_cmd_good_bye():

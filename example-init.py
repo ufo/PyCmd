@@ -145,6 +145,28 @@ appearance.colors.dir_history_selection = (color.Fore.TOGGLE_BRIGHT +
 #  2. Replace the "top-level" appearance.prompt with a custom function
 appearance.prompt = universal_prompt
 
+# For prefixing all prompts with an additional 'global' prefix that can be
+# customized via the config callback function 'prompt_prefix' , e.g., to
+# display a named environment setup a la "[Py3] [master]>".
+appearance.prompt_prefix = lambda: color.Fore.BLUE + "[My ENV] " + color.Fore.DEFAULT
+
+# Skip the SVN/Git status check after N seconds because on huge source
+# projects it might take several seconds each time. The default is 0.25
+# seconds. 'None' or '0' unlimits the timeout. '-1' fully deactivates the
+# status check.
+appearance.cvs_timeout = 3
+
+# For defining a custom function printing a welcome splash text. The
+# default function (value 'windows_cmd_welcome') imitates the one of the
+# default Windows cmd.exe, plus printing a "[PyCmd: ON]". You can
+# set it back to the original splash text of PyCmd with the value 'default_welcome'.
+appearance.welcome = lambda: print("\nHi there again ;)")
+
+# For defining a custom function returning a good-bye text. The default
+# function (value 'windows_cmd_good_bye') returns a "[PyCmd: OFF]". You can
+# set it back to the original splash text of PyCmd with the value 'default_good_bye'.
+appearance.good_bye = lambda: "\nSee you! ;)"
+
 
 # Make PyCmd be "quiet", i.e. skip its welcome and goodbye messages
 #
@@ -155,7 +177,6 @@ appearance.prompt = universal_prompt
 #       behavior.quiet_mode = False
 behavior.quiet_mode = False
 
-
 # Change the way PyCmd handles Tab-completion
 #
 # Accepted values:
@@ -163,6 +184,27 @@ behavior.quiet_mode = False
 #   'bash': display completions, then redisplay prompt
 #
 behavior.completion_mode = 'zsh'
+
+# For modifying the previously fixed internal default value of 9. Note
+# that only the first 9 entries can be additionally navigated via accelerator
+# short (ALT + <NUMBER>), thus these entries a prefixed with a "+".
+behavior.max_dir_history_length = 9
+
+# For defining a string with a fixed list of directories separated via
+# linebreaks (or alternatively a Python list of strings) which can be
+# listed and navigated just like the direcory history, but with
+# SHIFT + ALT + D, while the default direcory history can be only
+# controled via ALT + D.
+# Example values:
+# behavior.directory_favorites = [
+#     r"C:\Users\someone",
+#     r"C:\Tools"
+# ]
+# behavior.directory_favorites = """
+# C:\Users\someone
+# C:\Tools
+# """
+behavior.directory_favorites = []
 
 
 # Remember, you can do whatever you want in this Python script!

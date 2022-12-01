@@ -1,3 +1,5 @@
 *.py[co]
 /build
 /PyCmd
+/buildinfo.py
+/pycmd_public.html

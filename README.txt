@@ -1,19 +1,22 @@
 IMPORTANT NOTE:
 ===============
 
-This is Horea Haitonic's 'PyCmd' with following modifications/extensions:
+This is Horea Haitonic's 'PyCmd' with following additional config settings:
 
-- Additional customizing setting "appearance.prompt_prefix", e.g., for prefixing
-  all prompts with a named global environment setup ("[Py3] [master]>")
-- Additional customizing setting "appearance.cvs_timeout", because on huge source
-  projects the SVN/Git status checks take several seconds each time
-- Additional customizing setting "appearance.welcome" for defining a custom
-  welcome splash text. The default one imitates the one of the default Windows
-  cmd.exe, plus printing a "[PyCmd: ON]"
-- Additional customizing setting "appearance.good_bye" for defining a custom
-  good-bye text. The default one prints a "[PyCmd: OFF]"
-- Additional customizing setting "behavior.max_dir_history_length" with a
-  default value of 9.
+- appearance.prompt_prefix: E.g., for prefixing all prompts with a named
+    global environment setup ("[Py3] [master]>").
+- appearance.cvs_timeout: Because on huge source projects the SVN/Git
+    status checks take several seconds each time.
+- appearance.welcome: For defining a custom welcome splash text. The
+    default one imitates the one of the default Windows cmd.exe, plus
+    printing a "[PyCmd: ON]".
+- appearance.good_bye: For defining a custom good-bye text. The default
+    one prints a "[PyCmd: OFF]".
+- behavior.max_dir_history_length: For modifying the default value of 9.
+- behavior.directory_favorites: For defining string with a fixed list of
+    directories separated via linebreaks (or alternatively a python list
+    of strings) which can be listed and navigated just like the direcory
+    history, but with SHIFT + ALT + D.
 
 ORIGINAL README:
 ================

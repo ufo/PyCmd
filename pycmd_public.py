@@ -446,6 +446,11 @@ class Behavior(_Settings):
         # Maximum allowed directory history length (if the history
         # gets too long it becomes hard to navigate)
         self.max_dir_history_length = 9
+        
+        # String with a fixed list of directories separated via linebreaks
+        # (or alternatively a python list of strings) which can be listed
+        # and navigated just like the direcory history, but with SHIFT + ALT + D.
+        self.directory_favorites = []
 
     def sanitize(self):
         if not self.completion_mode in ['bash', 'zsh']:

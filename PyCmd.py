@@ -28,6 +28,7 @@ pycmd_data_dir = None
 pycmd_install_dir = None
 state = None
 dir_hist = None
+dir_favorites = None
 tmpfile = None
 save_history_limit = 2000
 
@@ -63,6 +64,14 @@ def init():
     dir_hist.locations = read_history(pycmd_data_dir + '\\dir_history')
     dir_hist.index = len(dir_hist.locations) - 1
     dir_hist.visit_cwd()
+
+    # Read/initialize directory favorites
+    global dir_favorites
+    dir_favorites = DirHistory()
+    dir_favorites.locations = behavior.directory_favorites
+    if not isinstance(dir_favorites.locations, list):
+        dir_favorites.locations = dir_favorites.locations.splitlines()
+    dir_favorites.index = len(dir_favorites.locations) - 1
 
     # Create temporary file
     global tmpfile
@@ -147,6 +156,7 @@ def main():
         auto_select = False
         force_repaint = True
         dir_hist.shown = False
+        dir_favorites.shown = False
         print()
 
         while True:
@@ -167,6 +177,7 @@ def main():
                 # (dir_hist.shown == False) the result of this action can be
                 # ignored
                 dir_hist.check_overflow(remove_escape_sequences(state.prompt))
+                dir_favorites.check_overflow(remove_escape_sequences(state.prompt))
 
                 # Write current line
                 stdout.write(u'\r' + color.Fore.DEFAULT + color.Back.DEFAULT + appearance.colors.prompt +
@@ -292,7 +303,7 @@ def main():
                     else:                               # Ctrl-Shift-Z
                         state.handle(ActionCode.ACTION_REDO)
                     auto_select = False
-            elif is_alt_pressed(rec) and not is_ctrl_pressed(rec):      # Alt-Something
+            elif is_alt_pressed(rec) and not is_ctrl_pressed(rec) and not is_shift_pressed(rec):      # Alt-Something
                 if rec.VirtualKeyCode in [37, 39] + list(range(49, 59)):
                     if state.before_cursor + state.after_cursor == '':  # Dir history
                         state.reset_prev_line()
@@ -331,6 +342,7 @@ def main():
                     state.handle(ActionCode.ACTION_NEXT)
                 elif rec.VirtualKeyCode == 68:          # Alt-D
                     if state.before_cursor + state.after_cursor == '':
+                        dir_favorites.shown = False  # The displayed dirhist is no longer valid
                         dir_hist.display()
                         dir_hist.check_overflow(remove_escape_sequences(state.prev_prompt))
                         stdout.write(state.prev_prompt)
@@ -346,6 +358,34 @@ def main():
                     state.handle(ActionCode.ACTION_BACKSPACE_WORD)
                 elif rec.VirtualKeyCode == 191:
                     state.handle(ActionCode.ACTION_EXPAND)
+            elif is_alt_pressed(rec) and is_shift_pressed(rec) and rec.VirtualKeyCode in [37, 39] + list(range(49, 59)): # Ctrl-Alt-Something
+                if state.before_cursor + state.after_cursor == '':  # Dir Favorites
+                    state.reset_prev_line()
+                    if rec.VirtualKeyCode == 37:            # Alt-Left
+                        changed = dir_favorites.go_left()
+                    elif rec.VirtualKeyCode == 39:          # Alt-Right     
+                        changed = dir_favorites.go_right()
+                    else:                                   # Alt-1..Alt-9
+                        changed = dir_favorites.jump(rec.VirtualKeyCode - 48)
+                    if changed:
+                        state.prev_prompt = state.prompt
+                        state.prompt = appearance.prompt()
+                    if dir_favorites.shown:
+                        dir_favorites.display()
+                        stdout.write(state.prev_prompt)
+                else:
+                    if rec.VirtualKeyCode == 37:            # Alt-Left
+                        state.handle(ActionCode.ACTION_LEFT_WORD, select)
+                    elif rec.VirtualKeyCode == 39:          # Alt-Right
+                        state.handle(ActionCode.ACTION_RIGHT_WORD, select)
+            elif is_alt_pressed(rec) and is_shift_pressed(rec) and rec.VirtualKeyCode == 68: # Ctrl-Alt-D
+                if state.before_cursor + state.after_cursor == '':
+                    dir_hist.shown = False  # The displayed dir favorites list is no longer valid
+                    dir_favorites.display()
+                    dir_favorites.check_overflow(remove_escape_sequences(state.prev_prompt))
+                    stdout.write(state.prev_prompt)
+                else:
+                    state.handle(ActionCode.ACTION_DELETE_WORD) 
             elif is_shift_pressed(rec) and rec.VirtualKeyCode == 33:    # Shift-PgUp
                 (_, t, _, b) = get_viewport()
                 scroll_buffer(t - b + 2)
@@ -422,6 +462,7 @@ def main():
                     elif len(suggestions) > 1:
                         # Multiple completions possible
                         dir_hist.shown = False  # The displayed dirhist is no longer valid
+                        dir_favorites.shown = False  # The displayed dir favorites list is no longer valid
                         path_sep = '/' if '/' in expand_env_vars(tokens[-1]) else '\\'
                         if tokens[-1]:
                             # Tokenize again in case the original line has been appended to

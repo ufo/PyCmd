@@ -138,6 +138,10 @@ def windows_cmd_good_bye():
 
 
 def prompt_prefix():
+    """
+    For optionally prefixing all prompts with an additional 'global' prefix,
+    e.g., to display a named environment setup a la "[Py3] [master]>".
+    """
     return ""
 
 

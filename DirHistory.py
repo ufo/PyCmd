@@ -124,7 +124,10 @@ class DirHistory:
         stdout.write(color.Fore.DEFAULT + color.Back.DEFAULT)
         for i in range(len(self.locations)):
             location = self.locations[i]
-            prefix = ' %d  ' % (i + 1)
+            if i < 9:
+                prefix = ' +%d  ' % (i + 1)
+            else:
+                prefix = ' %d  ' % (i + 1)
             lines_written += int((len(prefix + location) / buffer_size[0] + 1))
             if i != self.index:
                 # Non-selected entry, simply print 

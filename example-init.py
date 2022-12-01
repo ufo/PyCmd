@@ -185,9 +185,14 @@ behavior.quiet_mode = False
 #
 behavior.completion_mode = 'zsh'
 
-# For modifying the previously fixed internal default value of 9. Note
-# that only the first 9 entries can be additionally navigated via accelerator
-# short (ALT + <NUMBER>), thus these entries a prefixed with a "+".
+# For modifying the previously fixed internal default value of 2000
+# for the command history limit.
+behavior.max_cmd_history_length = 2000
+
+# For modifying the previously fixed internal default value of 9 for the
+# directory history limit. Note that only the first 9 entries can be
+# additionally navigated via accelerator short (ALT + <NUMBER>),
+# thus these entries a prefixed with a "+".
 behavior.max_dir_history_length = 9
 
 # For defining a string with a fixed list of directories separated via

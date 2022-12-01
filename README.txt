@@ -20,6 +20,8 @@ This is Horea Haitonic's 'PyCmd' with following additional config settings:
       one (value 'windows_cmd_good_bye') prints a "[PyCmd: OFF]". You can
       set it back to the original splash text of PyCmd with the value
       'default_good_bye'.
+- behavior.max_cmd_history_length: For modifying the previously fixed
+      internal default value of 2000.
 - behavior.max_dir_history_length: For modifying the previously fixed
       internal default value of 9. Note that only the first 9 entries
       can be additionally navigated via accelerator short

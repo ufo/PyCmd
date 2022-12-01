@@ -460,6 +460,9 @@ class Behavior(_Settings):
         # Select the completion mode; currently supported: 'bash' and 'zsh'
         self.completion_mode = 'zsh'
     
+        # Maximum allowed command history length
+        self.max_cmd_history_length = 2000
+    
         # Maximum allowed directory history length (if the history
         # gets too long it becomes hard to navigate)
         self.max_dir_history_length = 9

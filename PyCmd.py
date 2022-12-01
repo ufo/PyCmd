@@ -30,7 +30,6 @@ state = None
 dir_hist = None
 dir_favorites = None
 tmpfile = None
-save_history_limit = 2000
 
 def init():
     # %APPDATA% is not always defined (e.g. when using runas.exe)
@@ -256,7 +255,7 @@ def main():
                         state.handle(ActionCode.ACTION_ESCAPE)
                         update_history(state.history.list[-1],
                                      pycmd_data_dir + '\\history',
-                                       save_history_limit)
+                                       behavior.max_cmd_history_length)
                         auto_select = False
                 elif rec.VirtualKeyCode == 65:          # Ctrl-A
                     state.handle(ActionCode.ACTION_HOME, select)
@@ -440,7 +439,7 @@ def main():
                         state.handle(ActionCode.ACTION_ESCAPE)
                         update_history(state.history.list[-1],
                                      pycmd_data_dir + '\\history',
-                                       save_history_limit)
+                                       behavior.max_cmd_history_length)
                         auto_select = False
                 elif rec.Char == '\t':                  # Tab
                     tokens = tokenize(state.before_cursor)
@@ -560,7 +559,7 @@ def main():
         state.history.add(line)
         update_history(state.history.list[-1],
                      pycmd_data_dir + '\\history',
-                       save_history_limit)
+                       behavior.max_cmd_history_length)
 
 
         # Add to dir history

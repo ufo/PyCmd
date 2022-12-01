@@ -12,6 +12,8 @@ This is Horea Haitonic's 'PyCmd' with following modifications/extensions:
   cmd.exe, plus printing a "[PyCmd: ON]"
 - Additional customizing setting "appearance.good_bye" for defining a custom
   good-bye text. The default one prints a "[PyCmd: OFF]"
+- Additional customizing setting "behavior.max_dir_history_length" with a
+  default value of 9.
 
 ORIGINAL README:
 ================

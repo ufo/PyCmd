@@ -307,7 +307,7 @@ def main():
                             state.prompt = appearance.prompt()
                         update_history(dir_hist.locations[-1],
                                      pycmd_data_dir + '\\dir_history',
-                                     dir_hist.max_len)
+                                     behavior.max_dir_history_length)
                         if dir_hist.shown:
                             dir_hist.display()
                             stdout.write(state.prev_prompt)
@@ -524,7 +524,7 @@ def main():
         dir_hist.visit_cwd()
         update_history(dir_hist.locations[-1],
                      pycmd_data_dir + '\\dir_history',
-                     dir_hist.max_len)
+                     behavior.max_dir_history_length)
 
         # Update default color
         color.update()

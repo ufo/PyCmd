@@ -1,7 +1,7 @@
 import os, sys
 from console import get_cursor, move_cursor, get_buffer_size
 from sys import stdout
-from pycmd_public import appearance, color
+from pycmd_public import appearance, color, behavior
 
 py2 = sys.version_info[0] == 2
 
@@ -19,10 +19,6 @@ class DirHistory:
     # True if a clean display of the history has been shown (i.e. the following
     # call to display() would actually be an update, not a fresh paint)
     shown = False
-
-    # Maximum allowed length (if the history gets too long it becomes hard to
-    # navigate)
-    max_len = 9
 
     def __init__(self):
         """Create an empty directory history"""
@@ -46,7 +42,7 @@ class DirHistory:
 
     def jump(self, index):
         """Jump to the specified index (checks whether it's still valid)"""
-        if index == 9:
+        if index == behavior.max_dir_history_length:
             self.index = len(self.locations) - 1
         elif index > len(self.locations):
             pass
@@ -100,7 +96,7 @@ class DirHistory:
         self.locations = self.locations[self.index + 1:] + self.locations[:self.index + 1]
 
         # shorten
-        self.locations = self.locations[-self.max_len:]
+        self.locations = self.locations[-behavior.max_dir_history_length:]
         self.index = len(self.locations) - 1
 
 

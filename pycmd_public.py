@@ -12,24 +12,29 @@ import os, sys, common, console
 py2 = sys.version_info[0] == 2
 
 
-def run(cmd, timeout_sec):
+def run(cmd, timeout_sec=None):
     import shlex
     from subprocess import Popen, PIPE
     from threading import Timer
     finished = False
     stdout = ""
     stderr = ""
-    proc = Popen(shlex.split(cmd), stdout=PIPE, stderr=PIPE)
-    timer = Timer(timeout_sec, proc.kill)
-    try:
-        timer.start()
-        stdout, stderr = proc.communicate()
-        if not py2:
-            stderr = stderr.decode()
-            stdout = stdout.decode()
-    finally:
-        finished = timer.is_alive()
-        timer.cancel()
+    if timeout_sec != -1:
+        proc = Popen(shlex.split(cmd), stdout=PIPE, stderr=PIPE)
+        if timeout_sec:
+            timer = Timer(timeout_sec, proc.kill)
+            try:
+                timer.start()
+                stdout, stderr = proc.communicate()
+            finally:
+                finished = timer.is_alive()
+                timer.cancel()
+        else:
+            stdout, stderr = proc.communicate()
+            finished = True
+    if not py2:
+        stderr = stderr.decode()
+        stdout = stdout.decode()
     return finished, stdout, stderr
 
 
@@ -271,12 +276,14 @@ def universal_prompt():
     This function selects the appropriate prompt sub-function (simple prompt,
     git prompt, svn prompt) based on the current directory.
     """
-    if appearance.cvs_timeout and find_updir('.git'):
-        return appearance.prompt_prefix() + appearance.git_prompt()
-    elif appearance.cvs_timeout and find_updir('.svn'):
-        return appearance.prompt_prefix() + appearance.svn_prompt()
+    prompt = appearance.prompt_prefix()
+    if appearance.cvs_timeout != -1 and find_updir('.git'):
+        prompt = prompt + appearance.git_prompt()
+    elif appearance.cvs_timeout != -1 and find_updir('.svn'):
+        prompt = prompt + appearance.svn_prompt()
     else:
-        return appearance.prompt_prefix() + appearance.simple_prompt()
+        prompt = prompt + appearance.simple_prompt()
+    return prompt
 
 
 class color(object):
@@ -404,8 +411,13 @@ class _Appearance(_Settings):
         # Some predefined prompts
         self.prompt_prefix = prompt_prefix
         self.simple_prompt = windows_cmd_prompt  # simple_prompt
+        
         self.git_prompt = git_prompt
         self.svn_prompt = svn_prompt
+        # The timeout in seconds for the SVN/Git status to be displayed:
+        # On large repositories the status check might take several seconds,
+        # thus the default value is 0.25 to prevent a 'hanging' command prompt.
+        # 'None' or '0' unlimits the status check timeout. '-1' deactivates it.
         self.cvs_timeout = 0.25
 
         # Color configuration
@@ -430,6 +442,10 @@ class Behavior(_Settings):
 
         # Select the completion mode; currently supported: 'bash' and 'zsh'
         self.completion_mode = 'zsh'
+    
+        # Maximum allowed directory history length (if the history
+        # gets too long it becomes hard to navigate)
+        self.max_dir_history_length = 9
 
     def sanitize(self):
         if not self.completion_mode in ['bash', 'zsh']:

@@ -134,7 +134,7 @@ def windows_cmd_welcome():
     """
     finished, stdout, stderr = run("cmd /c ver", 1)
     print(stdout.strip())
-    print("(c) %s Microsoft Corporation. All rights reserved." % datetime.now().year)
+    print("(c) Microsoft Corporation. All rights reserved.")
     build_version, build_date, arch = get_build_info()
     if build_version and build_date:
         version_str = "%s-%s-%s" % (build_version, arch, build_date)

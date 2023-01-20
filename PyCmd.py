@@ -640,7 +640,9 @@ def run_command(tokens):
                     if is_gui_application(executable):
                         import subprocess
                         s = u' '.join([expand_tilde(t) for t in tokens])
-                        subprocess.Popen(s.encode(sys.getfilesystemencoding()), shell=True)
+                        if py2:
+                            s = s.encode(sys.getfilesystemencoding())
+                        subprocess.Popen(s, shell=True)
                         return
 
         # Regular (external) command

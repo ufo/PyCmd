@@ -329,15 +329,14 @@ def full_executable_path(app_unicode):
     Compute the full path of the executable that will be spawned 
     for the given command
     """
-    app = app_unicode.encode(sys.getfilesystemencoding())
+    app = app_unicode
+    if not py2:
+        app = app.decode()
 
     # Split the app into a dir, a name and an extension; we
     # will configure our search for the actual executable based
     # on these
-    if py2:
-        dir, file = os.path.split(app.strip('"'))
-    else:
-        dir, file = os.path.split(app.strip(b'"'))
+    dir, file = os.path.split(app.strip('"'))
     name, ext = os.path.splitext(file)
 
     # Determine possible executable extension

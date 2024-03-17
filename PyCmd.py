@@ -1,3 +1,6 @@
+
+from __future__ import print_function
+
 import sys, os, tempfile, signal, time, traceback, codecs, platform
 import win32console, win32gui, win32con, win32api
 
@@ -18,6 +21,8 @@ from console import remove_escape_sequences
 from Window import Window
 from pycmd_public import color, appearance, behavior
 from common import apply_settings, sanitize_settings
+
+py2 = sys.version_info[0] == 2
 
 
 pycmd_data_dir = None
@@ -612,10 +617,10 @@ def internal_cd(args):
             os.chdir(target)
         os.environ['ERRORLEVEL'] = '0'
     except FileNotFoundError as error:
-        stderr.write(f'The system cannot find the path specified: {error.filename}\n')
+        stderr.write('The system cannot find the path specified: %s\n' % error.filename)
         os.environ['ERRORLEVEL'] = '1'
     except PermissionError as error:
-        stderr.write(f'Access is denied: {error.filename}\n')
+        stderr.write('Access is denied: %s\n' % error.filename)
         os.environ['ERRORLEVEL'] = '1'
     except OSError as error:
         stderr.write(str(error).replace('\\\\', '\\') + '\n')
@@ -691,6 +696,8 @@ def run_command(tokens):
                     if is_gui_application(executable):
                         import subprocess
                         s = u' '.join([expand_tilde(t) for t in tokens])
+                        if py2:
+                            s = s.encode(sys.getfilesystemencoding())
                         subprocess.Popen(s, shell=True)
                         os.environ['ERRORLEVEL'] = '0'
                         win32api.SetDllDirectory(orig_dll_dir)
@@ -739,7 +746,8 @@ def run_in_cmd(tokens):
         command = '"'
         global pushd_stack
         if pushd_stack:
-            (first_dir, *rest) = (*pushd_stack, os.getcwd())
+            rest = pushd_stack + [os.getcwd()]
+            first_dir.pop(0)
             command += 'cd /d "' + first_dir + '"'
             for d in rest:
                 command += '& pushd "' + d + '"'
@@ -758,6 +766,8 @@ def run_in_cmd(tokens):
         command += '& pushd >> ' + '"' + tmpfile + '"'
         command += '& echo ===PUSHD STACK END=== >> ' + '"' + tmpfile + '"'
         command += '"'
+        if py2:
+            command = command.encode(sys.getfilesystemencoding())
         os.system(command)
 
     # Update environment and state

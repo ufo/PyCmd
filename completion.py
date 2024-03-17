@@ -57,7 +57,7 @@ def complete_file_simple(line):
     if path_to_complete == '' and token != '' and token[0] == path_sep:
         path_to_complete = path_sep
 
-    #(print '\n\n', path_to_complete, '---', prefix, '\n\n')
+    # print('\n\n', path_to_complete, '---', prefix, '\n\n')
 
     if path_to_complete == '':
         dir_to_complete = os.getcwd()

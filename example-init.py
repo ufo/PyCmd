@@ -122,6 +122,15 @@ appearance.colors.completion_match = color.Fore.TOGGLE_RED
 appearance.colors.dir_history_selection = (color.Fore.TOGGLE_BRIGHT +
                                            color.Back.TOGGLE_BRIGHT)
 
+# The color of the auto-suggestion text (relative to the console's default color)
+#
+# The default value use the background color with the brightness toggled to achieve
+# a "dimmed" color efect:
+#    appearance.colors.suggestion = (color.back_to_fore(color.Back.DEFAULT) +
+#                                    color.Fore.TOGGLE_BRIGHT)
+appearance.colors.suggestion = (color.back_to_fore(color.Back.DEFAULT) +
+                                color.Fore.TOGGLE_BRIGHT)
+
 # Define a custom prompt function.
 #
 # This is called by PyCmd whenever a prompt is to be displayed. It should return
@@ -134,7 +143,7 @@ appearance.colors.dir_history_selection = (color.Fore.TOGGLE_BRIGHT +
 #
 # The default is a "universal" prompt that atomatically selects between the
 # following predefined prompts:
-#   * appearance.simple_prompt (by default returns the abbreviated path)
+#   * appearance.simple_prompt (by default returns the abbreviated path + the ERRORLEVEL)
 #   * appearance.git_prompt (returns condensed git status info + simple_prompt)
 #   * appearance.svn_prompt (returns svn dirty indicator + simple_prompt)
 #
@@ -176,6 +185,7 @@ appearance.good_bye = lambda: "\nSee you! ;)"
 # The default is False, i.e. the splash messages are shown:
 #       behavior.quiet_mode = False
 behavior.quiet_mode = False
+
 
 # Change the way PyCmd handles Tab-completion
 #

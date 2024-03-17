@@ -1,24 +1,18 @@
 import os, sys
+import os.path
 from console import get_cursor, move_cursor, get_buffer_size
 from sys import stdout
+from common import abbrev_tilde
 from pycmd_public import appearance, color, behavior
 
-py2 = sys.version_info[0] == 2
-
+def _norm(path):
+    return os.path.normcase(os.path.expanduser(path))
 
 class DirHistory:
     """
     Handle a history of visited directories, somewhat similar to a browser
     history.
     """
-
-    # Location and buffer size of the last displayed history
-    offset_from_bottom = 0
-    disp_size = (0, 0)
-
-    # True if a clean display of the history has been shown (i.e. the following
-    # call to display() would actually be an update, not a fresh paint)
-    shown = False
 
     def __init__(self):
         """Create an empty directory history"""
@@ -40,21 +34,15 @@ class DirHistory:
             self.index = 0
         return self._apply()
 
-    def jump(self, index):
-        """Jump to the specified index (checks whether it's still valid)"""
-        if index == behavior.max_dir_history_length:
-            self.index = len(self.locations) - 1
-        elif index > len(self.locations):
-            pass
-        else:
-            self.index = index - 1
+    def jump(self, location):
+        """Jump to the specified location (this must be an actual entry from the locations list!)"""
+        self.index = self.locations.index(location)
         return self._apply()
 
     def _apply(self):
         """Change to the currently selected directory (checks if still valid)"""
         try:
-            os.chdir(self.locations[self.index])
-            changed = True
+            os.chdir(os.path.expanduser(self.locations[self.index]))
             self.keep = True  # keep saved entries even if no command is executed
         except OSError as error:
             stdout.write('\n  ' + str(error) + '\n')
@@ -62,16 +50,13 @@ class DirHistory:
             self.index -= 1
             if self.index < 0:
                 self.index = len(self.locations) - 1
-            changed = False
             self.shown = False
-        return changed
+        return
 
     def visit_cwd(self):
         """Add the current directory to the history of visited locations"""
-        cwd = os.getcwd()
-        if py2:
-            cwd = cwd.decode(sys.getfilesystemencoding())
-        if self.locations and cwd == self.locations[self.index]:
+        cwd = abbrev_tilde(os.getcwd())
+        if self.locations and _norm(cwd) == _norm(self.locations[self.index]):
             return
 
         if self.keep:
@@ -87,9 +72,9 @@ class DirHistory:
         self.keep = False
 
         # remove duplicates
-        self.locations = ([l for l in self.locations[:self.index] if l.lower() != cwd.lower()]
+        self.locations = ([l for l in self.locations[:self.index] if _norm(l) != _norm(cwd)]
                           + [cwd]
-                          + [l for l in self.locations[self.index + 1:] if l.lower() != cwd.lower()])
+                          + [l for l in self.locations[self.index + 1:] if _norm(l) != _norm(cwd)])
         self.index = self.locations.index(cwd)
 
         # rotate the history so that the current directory is last
@@ -98,64 +83,3 @@ class DirHistory:
         # shorten
         self.locations = self.locations[-behavior.max_dir_history_length:]
         self.index = len(self.locations) - 1
-
-
-
-    def display(self):
-        """
-        Nicely formatted display of the location history, with current location
-        highlighted. If a clean display is present on the screen, this
-        overwrites it to perform an 'update'.
-        """
-        buffer_size = get_buffer_size()
-
-        if self.shown and self.disp_size == buffer_size:
-            # We just need to update the previous display, so we
-            # go back to the original display start point
-            move_cursor(0, buffer_size[1] - self.offset_from_bottom)
-        else:
-            # We need to redisplay, so remember the start point for
-            # future updates
-            self.disp_size = buffer_size
-            self.offset_from_bottom = buffer_size[1] - get_cursor()[1]
-
-        stdout.write('\n')
-        lines_written = 2
-        stdout.write(color.Fore.DEFAULT + color.Back.DEFAULT)
-        for i in range(len(self.locations)):
-            location = self.locations[i]
-            if i < 9:
-                prefix = ' +%d  ' % (i + 1)
-            else:
-                prefix = ' %d  ' % (i + 1)
-            lines_written += int((len(prefix + location) / buffer_size[0] + 1))
-            if i != self.index:
-                # Non-selected entry, simply print 
-                stdout.write(prefix + location + '\n')
-            else:
-                # Currently selected entry, print with highlight
-                stdout.write(appearance.colors.dir_history_selection +
-                             prefix +
-                             location +
-                             color.Fore.DEFAULT +
-                             color.Back.DEFAULT)
-                stdout.write(' ' * (buffer_size[0] - get_cursor()[0]))
-
-        # Check whether we have overflown the buffer
-        if lines_written > self.offset_from_bottom:
-            self.offset_from_bottom = lines_written
-
-        # Mark a clean display of the history
-        self.shown = True
-
-    def check_overflow(self, line):
-        """
-        Update the known location of a shown history to account for the
-        possibility of overflowing the display buffer.
-        """
-        (buf_width, buf_height) = get_buffer_size()
-        (cur_x, cur_y) = get_cursor()
-        lines_written = int(len(line) / buf_width + 1)
-        if cur_y + lines_written > buf_height:
-            self.offset_from_bottom += cur_y + lines_written - buf_height
-

@@ -6,7 +6,6 @@ unchanged (interface-wise) throughout later versions.
 """
 from __future__ import print_function
 
-from datetime import datetime
 import os, sys, common, console
 
 py2 = sys.version_info[0] == 2
@@ -52,15 +51,23 @@ def abbrev_path(path = None):
     The abbreviation is performed by keeping only the first letter of each
     "word" composing a path element. "Words" are defined by CamelCase,
     underscore_separation or "whitespace separation".
+
+    Before the abbreviation is performed, a leading home-dir is
+    replaced with "~"
     """
     if not path:
         path = os.getcwd()
-        if py2:
-            path = path.decode(sys.getfilesystemencoding())
         path = path[0].upper() + path[1:]
-    current_dir = path[ : 3]
-    path = path[3 : ]
-    path_abbrev = current_dir[ : 2]
+
+    if path.lower().startswith(os.path.expanduser('~').lower()):
+        # Replace home directory with ~
+        current_dir = os.path.expanduser('~')
+        path = path[len(os.path.expanduser('~')) + 1:]
+        path_abbrev = '~'
+    else:
+        current_dir = path[ : 3]
+        path = path[3 : ]
+        path_abbrev = current_dir[ : 2]
 
     for elem in path.split('\\')[ : -1]:
         elem_abbrev = common.abbrev_string(elem)
@@ -73,7 +80,7 @@ def abbrev_path(path = None):
         current_dir += '\\' + elem
         path_abbrev += '\\' + elem_abbrev
 
-    return path_abbrev + '\\' + path.split('\\')[-1]
+    return path_abbrev if path_abbrev == '~' and not path else path_abbrev + '\\' + path.split('\\')[-1]
 
 
 def find_updir(name, path=None):
@@ -183,13 +190,28 @@ def windows_cmd_prompt_short():
 
 def simple_prompt():
     """
-    Return a prompt containg the current path (abbreviated)
+    Return a prompt containg the current path (abbreviated) plus the ERRORLEVEL
+    of the previous command.
 
     This is the default PyCmd prompt. It uses the abbrev_path() function to
-    obtain the shortened path and appends the typical '> '.
+    obtain the shortened path and appends the ERRORLEVEL plus the typical '> '.
     """
-    # When this is called, the current color is appearance.colors.prompt
-    return abbrev_path() + '>' + color.Fore.DEFAULT + color.Back.DEFAULT + ' '
+    # When this is called, the current color is DEFAULT + appearance.colors.prompt
+    if os.environ['ERRORLEVEL'] != '0' and os.environ['ERRORLEVEL'] != '141':
+        # 141 is not usually an actual error, as it is returned when a
+        # SIGPIPE occurs with a command whose output is piped into a
+        # pager (such as less). A common example is `git log`, see
+        # e.g. https://lore.kernel.org/git/YAG%2FvzctP4JwSp5x@zira.vinc17.org/
+        # Note that other shells (e.g. fish) also hide this particular
+        # exit value!
+        errorlevel = (color.Fore.TOGGLE_BRIGHT + ':' + color.Fore.TOGGLE_BRIGHT
+                      + color.Back.RED + color.Back.TOGGLE_BRIGHT
+                      + color.Fore.WHITE + color.Fore.SET_BRIGHT
+                      + os.environ['ERRORLEVEL']
+                      + color.Back.DEFAULT + color.Fore.DEFAULT + appearance.colors.prompt)
+    else:
+        errorlevel = ''
+    return abbrev_path() + errorlevel + '>' + color.Fore.DEFAULT + color.Back.DEFAULT + ' '
 
 
 def git_prompt():
@@ -293,14 +315,12 @@ def universal_prompt():
     This function selects the appropriate prompt sub-function (simple prompt,
     git prompt, svn prompt) based on the current directory.
     """
-    prompt = appearance.prompt_prefix()
-    if appearance.cvs_timeout != -1 and find_updir('.git'):
-        prompt = prompt + appearance.git_prompt()
-    elif appearance.cvs_timeout != -1 and find_updir('.svn'):
-        prompt = prompt + appearance.svn_prompt()
+    if find_updir('.git'):
+        return appearance.git_prompt()
+    elif find_updir('.svn'):
+        return appearance.svn_prompt()
     else:
-        prompt = prompt + appearance.simple_prompt()
-    return prompt
+        return appearance.simple_prompt()
 
 
 class color(object):
@@ -335,6 +355,7 @@ class color(object):
 
 
         # Standard colors defined as combinations of the RGB constants
+        BLACK = CLEAR_RED + CLEAR_GREEN + CLEAR_BLUE
         RED = SET_RED + CLEAR_GREEN + CLEAR_BLUE
         GREEN = CLEAR_RED + SET_GREEN + CLEAR_BLUE
         YELLOW = SET_RED + SET_GREEN + CLEAR_BLUE
@@ -369,6 +390,7 @@ class color(object):
         TOGGLE_BRIGHT = chr(27) + 'BTX'
 
         # Standard colors defined as combinations of the RGB constants
+        BLACK = CLEAR_RED + CLEAR_GREEN + CLEAR_BLUE
         RED = SET_RED + CLEAR_GREEN + CLEAR_BLUE
         GREEN = CLEAR_RED + SET_GREEN + CLEAR_BLUE
         YELLOW = SET_RED + SET_GREEN + CLEAR_BLUE
@@ -389,6 +411,11 @@ class color(object):
         """
         color.Back.DEFAULT = console.get_current_background()
         color.Fore.DEFAULT = console.get_current_foreground()
+
+    @staticmethod
+    def back_to_fore(other):
+        return other.replace(chr(27) + 'B', chr(27) + 'F')
+
 
 class _Settings(object):
     """
@@ -420,6 +447,7 @@ class _Appearance(_Settings):
             self.completion_match = color.Fore.TOGGLE_RED
             self.dir_history_selection = (color.Fore.TOGGLE_BRIGHT +
                                           color.Back.TOGGLE_BRIGHT)
+            self.suggestion = color.back_to_fore(color.Back.DEFAULT) + color.Fore.TOGGLE_BRIGHT
 
     def __init__(self):
         # Prompt function (should return a string)
@@ -456,6 +484,12 @@ class Behavior(_Settings):
         # Skip splash message (welcome and bye).
         # This can be also overriden with the '-Q' command line argument'
         self.quiet_mode = False
+
+        # Enable delayed expansion of environment variables (this is
+        # required for proper handling of ERRORLEVEL and should only
+        # be disabled for compatibility reasons
+        # Can be overridden with the '-V:OFF' command line argument
+        self.delayed_expansion = True
 
         # Select the completion mode; currently supported: 'bash' and 'zsh'
         self.completion_mode = 'zsh'

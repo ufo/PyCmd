@@ -1,17 +1,15 @@
 #
 # Functions for manipulating the console using Microsoft's Console API
 #
+from itertools import chain
+from functools import reduce
 import ctypes, sys, locale, time
 from ctypes import Structure, Union, c_int, c_long, c_char, c_wchar, c_short, pointer, byref
 from ctypes.wintypes import BOOL, WORD, DWORD
-import functools
 from win32console import GetStdHandle, STD_INPUT_HANDLE, PyINPUT_RECORDType, KEY_EVENT
 from win32con import LEFT_CTRL_PRESSED, RIGHT_CTRL_PRESSED
 from win32con import LEFT_ALT_PRESSED, RIGHT_ALT_PRESSED
 from win32con import SHIFT_PRESSED
-
-py2 = sys.version_info[0] == 2
-
 
 global FOREGROUND_RED
 global FOREGROUND_GREEN
@@ -64,8 +62,6 @@ def get_text_attributes():
 
 def set_text_attributes(color):
     """Set foreground/background RGB components for the text to write"""
-    if not py2:
-        sys.__stdout__.flush()
     ctypes.windll.kernel32.SetConsoleTextAttribute(stdout_handle, color)
 
 def get_buffer_attributes(x, y, n):
@@ -73,6 +69,7 @@ def get_buffer_attributes(x, y, n):
     colors = (n * WORD)()
     coord = COORD(x, y)
     read = DWORD(0)
+    sys.__stdout__.flush()
     ctypes.windll.kernel32.ReadConsoleOutputAttribute(stdout_handle, colors, n, coord, pointer(read))
     return colors
 
@@ -94,7 +91,7 @@ def visual_bell():
 
 def set_console_title(title):
     """Set the title of the current console"""
-    ctypes.windll.kernel32.SetConsoleTitleA(title)
+    ctypes.windll.kernel32.SetConsoleTitleA(title.encode(sys.stdout.encoding))
 
 def move_cursor(x, y):
     """Move the cursor to the specified location"""
@@ -131,8 +128,6 @@ def get_viewport():
 def set_cursor_attributes(size, visibility):
     """Set the cursor size and visibility"""
     cursor_info = CONSOLE_CURSOR_INFO(size, visibility)
-    if not py2:
-        sys.__stdout__.flush()
     ctypes.windll.kernel32.SetConsoleCursorInfo(stdout_handle, pointer(cursor_info))
 
 def cursor_backward(count):
@@ -186,8 +181,7 @@ def write_input(key_code, char, control_state):
 
 def write_str(s):
     """
-    Output s to stdout (after encoding it with stdout encoding to
-    avoid conversion errors with non ASCII characters)
+    Output s to stdout, while processing the color sequences
     """
     def write_with_sane_cursor(s):
         """
@@ -197,6 +191,7 @@ def write_str(s):
         buffer_width = get_buffer_size()[0]
         cursor_before = get_cursor()[0]
         sys.__stdout__.write(s)
+        sys.__stdout__.flush()
         cursor_after = get_cursor()[0]
         if (buffer_width > 0
             and (cursor_before + len(s)) % buffer_width == 0
@@ -205,17 +200,11 @@ def write_str(s):
             # ourselves
             sys.__stdout__.write(' \r')
 
-    if sys.__stdout__.encoding:
-        encoded_str = s.encode(sys.__stdout__.encoding, 'replace')
-    else:
-        encoded_str = s
     i = 0
     buf = ''
     attr = get_text_attributes()
-    while i < len(encoded_str):
-        c = encoded_str[i]
-        if not py2:
-            c = chr(c)
+    while i < len(s):
+        c = s[i]
         if c == chr(27):
             if buf:
                 # We have some characters, apply attributes and write them out
@@ -224,13 +213,9 @@ def write_str(s):
                 buf = ''
 
             # Process color commands to compute and set new attributes
-            target = encoded_str[i + 1]
-            command = encoded_str[i + 2]
-            component = encoded_str[i + 3]
-            if not py2:
-                target = chr(target)
-                command = chr(command)
-                component = chr(component)
+            target = s[i + 1]
+            command = s[i + 2]
+            component = s[i + 3]
             i += 3
 
             # Escape sequence format is [ESC][TGT][OP][COMP], where:
@@ -274,8 +259,6 @@ def write_str(s):
     set_text_attributes(attr)
     if buf:
         write_with_sane_cursor(buf)
-    if not py2:
-        sys.__stdout__.flush()
 
 def remove_escape_sequences(s):
     """
@@ -283,11 +266,12 @@ def remove_escape_sequences(s):
     
     """
     from pycmd_public import color
-    escape_sequences_fore = [v for (k, v) in list(color.Fore.__dict__.items()) + list(color.Back.__dict__.items())
+    escape_sequences_fore = [v for (k, v) in chain(color.Fore.__dict__.items(),
+                                                   color.Back.__dict__.items())
                              if not k in ['__dict__', '__doc__', '__weakref__', '__module__']]
-    return functools.reduce(lambda x, y: x.replace(y, ''), 
-                            escape_sequences_fore,
-                            s)
+    return reduce(lambda x, y: x.replace(y, ''), 
+                  escape_sequences_fore,
+                  s)
 
 def get_current_foreground():
     """Get the current foreground setting as a color string"""
@@ -353,27 +337,17 @@ stdout_handle = ctypes.windll.kernel32.GetStdHandle(-11)
 
 class ColorOutputStream:
     """
-    We install a custom sys.stdout that handles:
-     * our color sequences
-     * string encoding
+    We install a custom sys.stdout that handles our color sequences
 
-     Note that this requires sys.stdout be only imported _after_ console;
-     not doing so will bring the original stdout in the current scope!
-     """
-    encoding = sys.__stdout__.encoding
-    
+    Note that this requires sys.stdout be only imported _after_ console;
+    not doing so will bring the original stdout in the current scope!
+    """
     def write(self, str):
         """Dispatch printing to our enhanced write function"""
         write_str(str)
 
     def __getattr__(self, name):
         return getattr(sys.__stdout__, name)
-
-# Set default encoding to the system's locale; this needs to be done here,
-# before we install the custom output stream (since we reload(sys))
-if py2:
-    reload(sys)
-    sys.setdefaultencoding(locale.getdefaultlocale()[1])
 
 # Install our custom output stream
 sys.stdout = ColorOutputStream()

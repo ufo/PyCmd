@@ -12,19 +12,9 @@ import pycmd_public
 py2 = sys.version_info[0] == 2
 
 if py2:
-    import _winreg
+    import _winreg as winreg
 else:
-    import winreg as _winreg
-
-    def execfile(filepath, globals=None, locals=None):
-        if globals is None:
-            globals = {}
-        globals.update({
-            "__file__": filepath,
-            "__name__": "__main__",
-        })
-        with open(filepath, "rb") as file:
-            exec(compile(file.read(), filepath, "exec"), globals, locals)
+    import winreg
 
 _debug_messages = []
 def debug(message):
@@ -59,7 +49,7 @@ redir_file_simple = ['>', '>>', '<']
 redir_file_ext = [c + d for d in digit_chars for c in ['<&', '>&']]
 redir_file_all = redir_file_simple + redir_file_ext
 redir_file_tokens = redir_file_all + [d + c for d in digit_chars for c in redir_file_all]
-# print redir_file_tokens
+# print(redir_file_tokens)
 
 # All command splitting tokens
 sep_tokens = seq_tokens + redir_file_tokens
@@ -205,6 +195,16 @@ def expand_tilde(string):
         string = string.replace('~', '%' + home_var + '%', 1)
     return string
 
+def abbrev_tilde(path):
+    """
+    Return an abbreviated form of the specified path by replacing a leading "home-dir" 
+    with "~"
+    """
+    home_dir = os.path.expanduser('~')
+    if path.lower().startswith(home_dir.lower()):
+        return '~' if len(path) == len(home_dir) else os.path.join('~', path[len(home_dir):].lstrip('\\'))
+    else:
+        return path
 
 def expand_env_vars(string):
     """
@@ -254,7 +254,7 @@ def fuzzy_match(substr, str, prefix_only = False):
     """
     #print '\n\nMatch "' + substr + '" in "' + str + '"\n\n'
     words = substr.split(' ')
-    pattern = [('\\b' if prefix_only else '') + '(' + word + ').*' for word in words]
+    pattern = [('\\b' if prefix_only else '') + '(' + re.escape(word) + ').*' for word in words]
     # print '\n\n', pattern, '\n\n'
     pattern = ''.join(pattern)
     matches = re.search(pattern, str, re.IGNORECASE)
@@ -312,11 +312,11 @@ def associated_application(ext):
     extension.
     """
     try:
-        file_class = _winreg.QueryValue(_winreg.HKEY_CLASSES_ROOT, ext) or ext
-        action = _winreg.QueryValue(_winreg.HKEY_CLASSES_ROOT, file_class + '\\shell') or 'open'
-        assoc_key = _winreg.OpenKey(_winreg.HKEY_CLASSES_ROOT, 
+        file_class = winreg.QueryValue(winreg.HKEY_CLASSES_ROOT, ext) or ext
+        action = winreg.QueryValue(winreg.HKEY_CLASSES_ROOT, file_class + '\\shell') or 'open'
+        assoc_key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, 
                                     file_class + '\\shell\\' + action + '\\command')
-        open_command = _winreg.QueryValueEx(assoc_key, None)[0]
+        open_command = winreg.QueryValueEx(assoc_key, None)[0]
         
         # We assume a value `similar to '<command> %1 %2'
         return expand_env_vars(parse_line(open_command)[0])
@@ -329,9 +329,7 @@ def full_executable_path(app_unicode):
     Compute the full path of the executable that will be spawned 
     for the given command
     """
-    app = app_unicode
-    if not py2:
-        app = app.decode()
+    app = app_unicode.encode(sys.getfilesystemencoding()).decode('utf-8')
 
     # Split the app into a dir, a name and an extension; we
     # will configure our search for the actual executable based
@@ -354,8 +352,6 @@ def full_executable_path(app_unicode):
     # Search for an app
     # print 'D:', paths_to_search, 'N:', name, 'E:', extensions_to_search
     for p in paths_to_search:
-        if not py2:
-            p = p.encode()
         for e in extensions_to_search:
             full_path = os.path.join(p, name) + e
             if os.path.exists(full_path):
@@ -404,7 +400,11 @@ def apply_settings(settings_file):
         try:
             # We initialize the dictionary to readily contain the settings
             # structures; anything else needs to be explicitly imported
-            execfile(settings_file, dict(list(pycmd_public.__dict__.items()) + [('__file__', settings_file)]))
+            if py2:
+                execfile(settings_file, dict(list(pycmd_public.__dict__.items()) + [('__file__', settings_file)]))
+            else:
+                exec(compile(open(settings_file).read(), settings_file, 'exec'),
+                     dict(list(pycmd_public.__dict__.items()) + [('__file__', settings_file)]))
         except Exception as e:
             print('Error encountered when loading ' + settings_file)
             print('Subsequent settings will NOT be applied!')

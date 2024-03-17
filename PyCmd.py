@@ -1,7 +1,5 @@
-from __future__ import print_function
-
 import sys, os, tempfile, signal, time, traceback, codecs, platform
-import win32console, win32gui, win32con
+import win32console, win32gui, win32con, win32api
 
 from common import tokenize, unescape, sep_tokens, sep_chars, exec_extensions, pseudo_vars
 from common import expand_tilde, expand_env_vars
@@ -21,14 +19,12 @@ from Window import Window
 from pycmd_public import color, appearance, behavior
 from common import apply_settings, sanitize_settings
 
-py2 = sys.version_info[0] == 2
-
 
 pycmd_data_dir = None
 pycmd_install_dir = None
 state = None
 dir_hist = None
-dir_favorites = None
+pushd_stack = []
 tmpfile = None
 
 def init():
@@ -93,6 +89,10 @@ def main():
     dir_favorites.locations = [d for d in dir_favorites.locations if d]  # Exclude blank lines
     dir_favorites.index = len(dir_favorites.locations) - 1
 
+    # Run an empty command to initialize environment
+    os.environ['ERRORLEVEL'] = '0'
+    run_command(['echo', '>', 'NUL'])
+
     # Parse arguments
     arg = 1
     while arg < len(sys.argv):
@@ -132,6 +132,12 @@ def main():
         elif switch in ['/Q', '-Q']:
             # Quiet mode: suppress messages
             behavior.quiet_mode = True
+        elif switch in ['/V:ON', '-V:ON']:
+            # Enable delayed expansion (already on by default)
+            behavior.delayed_expansion = True
+        elif switch in ['/V:OFF', '-V:OFF']:
+            # Disable delayed expansion
+            behavior.delayed_expansion = False
         else:
             # Invalid command line switch
             stderr.write('PyCmd: unrecognized option `' + sys.argv[arg] + '\'\n')
@@ -146,9 +152,6 @@ def main():
     if not behavior.quiet_mode:
         appearance.welcome()
 
-    # Run an empty command to initialize environment
-    run_command(['echo', '>', 'NUL'])
-
     # Main loop
     while True:
         # Prepare buffer for reading one line
@@ -156,8 +159,6 @@ def main():
         scrolling = False
         auto_select = False
         force_repaint = True
-        dir_hist.shown = False
-        dir_favorites.shown = False
         print()
 
         while True:
@@ -168,17 +169,10 @@ def main():
             os.environ['CD'] = curdir
 
             if state.changed() or force_repaint:
-                prev_total_len = len(remove_escape_sequences(state.prev_prompt) + state.prev_before_cursor + state.prev_after_cursor)
+                prev_total_len = len(remove_escape_sequences(state.prev_prompt) + state.prev_before_cursor + state.prev_after_cursor + state.prev_suggestion)
                 set_cursor_attributes(50 if state.overwrite else 10, False)
                 cursor_backward(len(remove_escape_sequences(state.prev_prompt) + state.prev_before_cursor))
                 stdout.write('\r')
-
-                # Update the offset of the directory history in case of overflow
-                # Note that if the history display is marked as 'dirty'
-                # (dir_hist.shown == False) the result of this action can be
-                # ignored
-                dir_hist.check_overflow(remove_escape_sequences(state.prompt))
-                dir_favorites.check_overflow(remove_escape_sequences(state.prompt))
 
                 # Write current line
                 stdout.write(u'\r' + color.Fore.DEFAULT + color.Back.DEFAULT + appearance.colors.prompt +
@@ -192,6 +186,7 @@ def main():
                                  line[sel_start: sel_end] +
                                  color.Fore.DEFAULT + color.Back.DEFAULT + appearance.colors.text +
                                  line[sel_end:])
+                    stdout.write(appearance.colors.suggestion + state.suggestion + color.Fore.DEFAULT + color.Back.DEFAULT + appearance.colors.text)
                 else:
                     pos = 0
                     colored_line = ''
@@ -203,7 +198,7 @@ def main():
                     stdout.write(colored_line)
 
                 # Erase remaining chars from old line
-                to_erase = prev_total_len - len(remove_escape_sequences(state.prompt) + state.before_cursor + state.after_cursor)
+                to_erase = prev_total_len - len(remove_escape_sequences(state.prompt) + state.before_cursor + state.after_cursor + state.suggestion)
                 if to_erase > 0:
                     stdout.write(color.Fore.DEFAULT + color.Back.DEFAULT + ' ' * to_erase)
                     cursor_backward(to_erase)
@@ -216,7 +211,7 @@ def main():
                 else:
                     cursor_height = 10
                 set_cursor_attributes(cursor_height, True)
-                cursor_backward(len(state.after_cursor))
+                cursor_backward(len(state.after_cursor + state.suggestion))
 
             # Bell if a notification is pending
             if state.bell:
@@ -233,7 +228,7 @@ def main():
             # Will be overridden if Shift-PgUp/Dn is pressed
             force_repaint = not is_control_only(rec)
 
-            #print '\n\n', rec.KeyDown, rec.Char, rec.VirtualKeyCode, rec.ControlKeyState, '\n\n'
+            #print('\n\n', rec.KeyDown, rec.Char, rec.VirtualKeyCode, rec.ControlKeyState, '\n\n')
             if is_ctrl_pressed(rec) and not is_alt_pressed(rec):  # Ctrl-Something
                 if rec.Char == chr(4):                  # Ctrl-D
                     if state.before_cursor + state.after_cursor == '':
@@ -253,10 +248,26 @@ def main():
                         scrolling = False
                     else:
                         state.handle(ActionCode.ACTION_ESCAPE)
-                        update_history(state.history.list[-1],
-                                     pycmd_data_dir + '\\history',
+                        update_history('add', state.history.list[-1],
+                                       pycmd_data_dir + '\\history',
                                        behavior.max_cmd_history_length)
                         auto_select = False
+                elif rec.VirtualKeyCode == 82:          # Ctrl-R
+                    w = Window(state.history.list, pattern=re.compile('(.*)$'),
+                               height=optimal_window_height())
+                    w.display()
+                    w.filter = state.history.filter if state.history.filter else state.before_cursor + state.after_cursor
+                    action, selection = w.interact(default_selection_last=True, can_zap=True)
+                    if action == 'select':
+                        state.before_cursor = selection
+                        state.after_cursor = ''
+                        state.reset_selection()
+                        state.history.reset()
+                    elif action == 'zap':
+                        state.zap(selection)
+                        update_history('remove', selection,
+                                       pycmd_data_dir + '\\history',
+                                       behavior.max_cmd_history_length)
                 elif rec.VirtualKeyCode == 65:          # Ctrl-A
                     state.handle(ActionCode.ACTION_HOME, select)
                 elif rec.VirtualKeyCode == 69:          # Ctrl-E
@@ -309,20 +320,12 @@ def main():
                     if state.before_cursor + state.after_cursor == '':  # Dir history
                         state.reset_prev_line()
                         if rec.VirtualKeyCode == 37:            # Alt-Left
-                            changed = dir_hist.go_left()
+                            dir_hist.go_left()
                         elif rec.VirtualKeyCode == 39:          # Alt-Right     
-                            changed = dir_hist.go_right()
-                        else:                                   # Alt-1..Alt-9
-                            changed = dir_hist.jump(rec.VirtualKeyCode - 48)
-                        if changed:
-                            state.prev_prompt = state.prompt
-                            state.prompt = appearance.prompt()
-                        update_history(dir_hist.locations[-1],
-                                     pycmd_data_dir + '\\dir_history',
-                                     behavior.max_dir_history_length)
-                        if dir_hist.shown:
-                            dir_hist.display()
-                            stdout.write(state.prev_prompt)
+                            dir_hist.go_right()
+                        state.prev_prompt = state.prompt
+                        state.prompt = appearance.prompt()
+                        update_dir_history()
                     else:
                         if rec.VirtualKeyCode == 37:            # Alt-Left
                             state.handle(ActionCode.ACTION_LEFT_WORD, select)
@@ -343,10 +346,15 @@ def main():
                     state.handle(ActionCode.ACTION_NEXT)
                 elif rec.VirtualKeyCode == 68:          # Alt-D
                     if state.before_cursor + state.after_cursor == '':
-                        dir_favorites.shown = False  # The displayed dirhist is no longer valid
-                        dir_hist.display()
-                        dir_hist.check_overflow(remove_escape_sequences(state.prev_prompt))
-                        stdout.write(state.prev_prompt)
+                        w = Window(dir_hist.locations, pattern=re.compile('(.*)$'),
+                                   height=optimal_window_height())
+                        w.display()
+                        action, selection = w.interact(initial_index=dir_hist.index)
+                        if action == 'select' and selection:
+                            dir_hist.jump(selection)
+                            state.prev_prompt = state.prompt
+                            state.prompt = appearance.prompt()
+                            update_dir_history()
                     else:
                         state.handle(ActionCode.ACTION_DELETE_WORD) 
                 elif rec.VirtualKeyCode == 87:          # Alt-W
@@ -359,7 +367,7 @@ def main():
                     state.handle(ActionCode.ACTION_BACKSPACE_WORD)
                 elif rec.VirtualKeyCode == 191:
                     state.handle(ActionCode.ACTION_EXPAND)
-            elif is_alt_pressed(rec) and is_shift_pressed(rec) and rec.VirtualKeyCode in [37, 39] + list(range(49, 59)): # Ctrl-Alt-Something
+            elif is_alt_pressed(rec) and is_shift_pressed(rec) and rec.VirtualKeyCode in [37, 39] + list(range(49, 59)): # Ctrl-Shift-Something
                 if state.before_cursor + state.after_cursor == '':  # Dir Favorites
                     state.reset_prev_line()
                     if rec.VirtualKeyCode == 37:            # Alt-Left
@@ -379,14 +387,26 @@ def main():
                         state.handle(ActionCode.ACTION_LEFT_WORD, select)
                     elif rec.VirtualKeyCode == 39:          # Alt-Right
                         state.handle(ActionCode.ACTION_RIGHT_WORD, select)
-            elif is_alt_pressed(rec) and is_shift_pressed(rec) and rec.VirtualKeyCode == 68: # Ctrl-Alt-D
+            elif is_alt_pressed(rec) and is_shift_pressed(rec) and rec.VirtualKeyCode == 68: # Ctrl-Shift-D
                 if state.before_cursor + state.after_cursor == '':
-                    dir_hist.shown = False  # The displayed dir favorites list is no longer valid
-                    dir_favorites.display()
-                    dir_favorites.check_overflow(remove_escape_sequences(state.prev_prompt))
-                    stdout.write(state.prev_prompt)
+                    w = Window(dir_favorites.locations, pattern=re.compile('(.*)$'),
+                               height=optimal_window_height())
+                    w.display()
+                    action, selection = w.interact(initial_index=dir_favorites.index)
+                    if action == 'select' and selection:
+                        dir_favorites.jump(selection)
+                        state.prev_prompt = state.prompt
+                        state.prompt = appearance.prompt()
+                        update_dir_history()
                 else:
                     state.handle(ActionCode.ACTION_DELETE_WORD) 
+            elif is_ctrl_pressed(rec) and is_alt_pressed(rec) and rec.VirtualKeyCode in [75]: # Ctrl-Alt-something
+                if rec.VirtualKeyCode == 75:            # Ctrl-Alt-K
+                    line = state.before_cursor + state.after_cursor
+                    state.handle(ActionCode.ACTION_ZAP)
+                    update_history('remove', line,
+                                   pycmd_data_dir + '\\history',
+                                   behavior.max_cmd_history_length)
             elif is_shift_pressed(rec) and rec.VirtualKeyCode == 33:    # Shift-PgUp
                 (_, t, _, b) = get_viewport()
                 scroll_buffer(t - b + 2)
@@ -437,9 +457,6 @@ def main():
                         scrolling = False
                     else:
                         state.handle(ActionCode.ACTION_ESCAPE)
-                        update_history(state.history.list[-1],
-                                     pycmd_data_dir + '\\history',
-                                       behavior.max_cmd_history_length)
                         auto_select = False
                 elif rec.Char == '\t':                  # Tab
                     tokens = tokenize(state.before_cursor)
@@ -450,10 +467,13 @@ def main():
                     else:
                         (completed, suggestions)  = complete_file(state.before_cursor)
 
+                    stdout.write(' ' * len(state.suggestion))
+                    cursor_backward(len(state.suggestion))
                     cursor_backward(len(state.before_cursor))
                     state.handle(ActionCode.ACTION_COMPLETE, completed)
                     stdout.write(state.before_cursor + state.after_cursor)
-                    cursor_backward(len(state.after_cursor))
+                    stdout.write(appearance.colors.suggestion + state.suggestion + color.Fore.DEFAULT + color.Back.DEFAULT + appearance.colors.text)
+                    cursor_backward(len(state.after_cursor) + len(state.suggestion))
                     state.step_line()
 
                     # Show multiple completions if available
@@ -462,8 +482,6 @@ def main():
                         state.bell = True
                     elif len(suggestions) > 1:
                         # Multiple completions possible
-                        dir_hist.shown = False  # The displayed dirhist is no longer valid
-                        dir_favorites.shown = False  # The displayed dir favorites list is no longer valid
                         path_sep = '/' if '/' in expand_env_vars(tokens[-1]) else '\\'
                         if tokens[-1]:
                             # Tokenize again in case the original line has been appended to
@@ -499,16 +517,18 @@ def main():
                             w.display()
                             state.reset_prev_line()
                         else:
-                            window_height = get_viewport()[3] - get_cursor()[1] - 1
-                            if window_height < int((get_viewport()[3] - get_viewport()[1]) / 3):
-                                window_height = int((get_viewport()[3] - get_viewport()[1]) / 3)
-                            w = Window(suggestions, pattern, height=window_height)
+                            w = Window(suggestions, pattern, height=optimal_window_height())
                             w.display()
                             w.reset_cursor()
-                            r = read_input()
-                            if r.Char == chr(0) and r.VirtualKeyCode == 40:
-                                selection = w.interact()
-                                if selection:
+                            while True:
+                                r = read_input()
+                                if not is_control_only(r):
+                                    break
+                            if r.Char == chr(0) and r.VirtualKeyCode == 40 or is_ctrl_pressed(r) and r.VirtualKeyCode == 78:
+                                stdout.write(' ' * len(state.suggestion))  # Erase suggestion
+                                cursor_backward(len(state.suggestion))
+                                action, selection = w.interact()
+                                if action == 'select' and selection:
                                     orig_last_token = tokenize(state.before_cursor)[-1]
 
                                     # Replace initial completion prefix with selection,
@@ -531,8 +551,9 @@ def main():
                                         and not completed.endswith(' ')):
                                         state.before_cursor += ' '
                                     state.reset_selection()
+                                    state.update_suggestion()
                             else:
-                                write_input(r.VirtualKeyCode, r.Char, 0)
+                                write_input(r.VirtualKeyCode, r.Char, r.ControlKeyState)
                                 w.erase()
                                 continue
                         set_cursor_attributes(cursor_height, True)
@@ -545,6 +566,9 @@ def main():
 
         # Done reading line, now execute
         stdout.write(state.after_cursor)        # Move cursor to the end
+        stdout.write(' ' * len(state.suggestion))  # Erase suggestion
+        cursor_backward(len(state.suggestion))
+
         line = (state.before_cursor + state.after_cursor).strip()
         tokens = tokenize(line)
         if tokens == [] or tokens[0] == '':
@@ -557,16 +581,13 @@ def main():
 
         # Add to history
         state.history.add(line)
-        update_history(state.history.list[-1],
-                     pycmd_data_dir + '\\history',
+        update_history('add', state.history.list[-1],
+                       pycmd_data_dir + '\\history',
                        behavior.max_cmd_history_length)
-
 
         # Add to dir history
         dir_hist.visit_cwd()
-        update_history(dir_hist.locations[-1],
-                     pycmd_data_dir + '\\dir_history',
-                     behavior.max_dir_history_length)
+        update_dir_history()
 
         # Update default color
         color.update()
@@ -575,16 +596,30 @@ def main():
 def internal_cd(args):
     """The internal CD command"""
     try:
+        if len(args) > 0 and args[0].lower() == "/d":
+            # cmd.exe requires `/d` when changing volumes; we just ignore it
+            args.pop(0)
         if len(args) == 0:
             os.chdir(expand_env_vars('~'))
         else:
-            target = args[0]
-            if target != u'\\' and target[1:] != u':\\':
-                target = target.rstrip(u'\\')
-            target = expand_env_vars(target.strip(u'"').strip(u' '))
-            os.chdir(target.encode(sys.getfilesystemencoding()))
+            if len(args) == 1:
+                target = args[0]
+            else:
+                target = " ".join(args)
+            if target != '\\' and target[1:] != ':\\':
+                target = target.rstrip('\\')
+            target = expand_env_vars(target.strip('"').strip(' '))
+            os.chdir(target)
+        os.environ['ERRORLEVEL'] = '0'
+    except FileNotFoundError as error:
+        stderr.write(f'The system cannot find the path specified: {error.filename}\n')
+        os.environ['ERRORLEVEL'] = '1'
+    except PermissionError as error:
+        stderr.write(f'Access is denied: {error.filename}\n')
+        os.environ['ERRORLEVEL'] = '1'
     except OSError as error:
-        stdout.write(u'\n' + str(error).replace('\\\\', '\\').decode(sys.getfilesystemencoding()))
+        stderr.write(str(error).replace('\\\\', '\\') + '\n')
+        os.environ['ERRORLEVEL'] = '1'
     os.environ['CD'] = os.getcwd()
 
 
@@ -599,6 +634,10 @@ def internal_exit(message = ''):
 def run_command(tokens):
     """Execute a command line (treat internal and external appropriately"""
 
+    # Inline %ERRORLEVEL%
+    if behavior.delayed_expansion:
+        tokens = [t.replace('%ERRORLEVEL%', os.environ['ERRORLEVEL']) for t in tokens]
+
     # Cleanup environment
     for var in pseudo_vars:
         if var in os.environ.keys():
@@ -610,6 +649,18 @@ def run_command(tokens):
         # This is a single CD command -- use our custom, more handy CD
         internal_cd([unescape(t) for t in tokens[1:]])
     else:
+        # cx_freeze calls SetDllDirectory() to exert control over the
+        # loading of DLLs by imported packages; this PROPAGATES TO
+        # SUBPROCESSES and can therefore influence the behavior of
+        # programs spawned by PyCmd. Here we reset the DLL search
+        # behavior to the default; we will restore it after executing
+        # the command
+        try:
+            orig_dll_dir = win32api.GetDllDirectory()
+        except:
+            orig_dll_dir = None
+        win32api.SetDllDirectory(None)
+
         if set(sep_tokens).intersection(tokens) == set([]):
             # This is a simple (non-compound) command
             # Crude hack so that we return to the prompt when starting GUI
@@ -640,14 +691,15 @@ def run_command(tokens):
                     if is_gui_application(executable):
                         import subprocess
                         s = u' '.join([expand_tilde(t) for t in tokens])
-                        if py2:
-                            s = s.encode(sys.getfilesystemencoding())
                         subprocess.Popen(s, shell=True)
+                        os.environ['ERRORLEVEL'] = '0'
+                        win32api.SetDllDirectory(orig_dll_dir)
                         return
 
         # Regular (external) command
         start_time = time.time()
         run_in_cmd(tokens)
+        win32api.SetDllDirectory(orig_dll_dir)
         console_window = win32console.GetConsoleWindow()
         if win32gui.GetForegroundWindow() != console_window and time.time() - start_time > 15:
             # If the window is inactive, flash after long t1asks
@@ -684,27 +736,55 @@ def run_in_cmd(tokens):
 
     # Run command
     if line_sanitized != '':
-        command = u'"'
+        command = '"'
+        global pushd_stack
+        if pushd_stack:
+            (first_dir, *rest) = (*pushd_stack, os.getcwd())
+            command += 'cd /d "' + first_dir + '"'
+            for d in rest:
+                command += '& pushd "' + d + '"'
+            command += ' & '
         command += line_sanitized
-        command += u' &set > "' + tmpfile + u'"'
-        for var in pseudo_vars:
-            command += u' & echo ' + var + u'="%' + var + u'%" >> "' + tmpfile + '"'
-        command += u'& <nul (set /p xxx=CD=) >>"' + tmpfile + u'" & cd >>"' + tmpfile + '"'
-        command += u'"'
-        if py2:
-            command = command.encode(sys.getfilesystemencoding())
+        command += ' &set > "' + tmpfile + '"'
+        if behavior.delayed_expansion:
+            for var in pseudo_vars:
+                command += ' & echo ' + var + '="!' + var + '!" >> "' + tmpfile + '"'
+            command = '%COMSPEC% /V:ON /c ' + command
+        else:
+            for var in pseudo_vars:
+                command += ' & echo ' + var + '="%' + var + '%" >> "' + tmpfile + '"'
+            command += '& <nul (set /p xxx=CD=) >>"' + tmpfile + '" & cd >>"' + tmpfile + '"'
+        command += '& echo ===PUSHD STACK BEGIN=== >> ' + '"' + tmpfile + '"'
+        command += '& pushd >> ' + '"' + tmpfile + '"'
+        command += '& echo ===PUSHD STACK END=== >> ' + '"' + tmpfile + '"'
+        command += '"'
         os.system(command)
 
     # Update environment and state
     new_environ = {}
-    env_file = open(tmpfile, 'r')
-    for line in [l for l in env_file.readlines() if not l.isspace()]:
-        [variable, value] = line.split('=', 1)
-        value = value.rstrip('\n ')
+    with open(tmpfile, 'r') as env_file:
+        lines = [l.rstrip('\n ') for l in env_file.readlines() if not l.isspace()]
+
+    # parse env
+    i = 0
+    while i < len(lines):
+        if lines[i] == "===PUSHD STACK BEGIN===":
+            break
+        (variable, value) = lines[i].split('=', 1)
         if variable in pseudo_vars:
             value = value.strip('"')
         new_environ[variable] = value
-    env_file.close()
+        i += 1
+
+    # parse pushd stack
+    pushd_stack = []
+    i += 1
+    while i < len(lines):
+        if lines[i] == "===PUSHD STACK END===":
+            break
+        pushd_stack.append(lines[i])
+        i += 1
+
     if new_environ != {}:
         for variable in os.environ.keys():
             if not variable in new_environ.keys() \
@@ -713,8 +793,6 @@ def run_in_cmd(tokens):
         for variable in new_environ:
             os.environ[variable] = new_environ[variable]
     cd = os.environ['CD']
-    if py2:
-        cd = cd.decode(stdout.encoding)
     os.chdir(cd.encode(sys.getfilesystemencoding()))
 
 
@@ -727,13 +805,20 @@ def signal_handler(signum, frame):
         # Emulate a Ctrl-C press
         write_input(67, u'c', 0x0008)
 
+def optimal_window_height():
+    _, viewport_top, _, viewport_bottom  = get_viewport()
+    window_height = viewport_bottom - get_cursor()[1] - 1
+    if window_height < (viewport_bottom - viewport_top) // 3:
+        window_height = (viewport_bottom - viewport_top) // 3
+    return window_height
 
-def update_history(line, filename, length):
+
+def update_history(action, line, filename, length):
     """
-    Append a new line to a history file. If the line was already present in the
-    file, we move it to the end. The resulting file is then truncated to the 
-    specified number of lines.
-
+    Append/remove a line to/from a history file.  
+    When adding, if the line was already present in the file, we move it to
+    the end. The resulting file is then truncated to the specified number of 
+    lines.
     """
     if os.path.isfile(filename):
         # Read previously saved history and merge with current
@@ -742,10 +827,11 @@ def update_history(line, filename, length):
         history_file.close()
         if line in history_to_save:
             history_to_save.remove(line)
-        history_to_save.append(line)
+        if action == 'add':
+            history_to_save.append(line)
     else:
-        # No previous history, save current
-        history_to_save = [line]
+        # No previous history, save current (only if adding)
+        history_to_save = [line] if action == 'add' else []
 
     if len(history_to_save) > length:
         history_to_save = history_to_save[-length :]    # Limit history file
@@ -768,6 +854,12 @@ def read_history(filename):
         print('Warning: Can\'t open ' + os.path.basename(filename) + '!')
         history = []
     return history
+
+
+def update_dir_history():
+    update_history('add', dir_hist.locations[-1],
+                   pycmd_data_dir + '\\dir_history',
+                   behavior.max_dir_history_length)
 
 
 def print_usage():
@@ -795,7 +887,7 @@ if __name__ == '__main__':
     try:
         init()
         main()
-    except Exception as e:
+    except Exception as e:        
         report_file_name = (pycmd_data_dir
                             + '\\crash-' 
                             + time.strftime('%Y%m%d_%H%M%S') 

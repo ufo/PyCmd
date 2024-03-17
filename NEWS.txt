@@ -1,3 +1,41 @@
+ * Fix "Access is denied" printed after each command when %APPDATA% contains
+   whitespace
+   
+Release 20240206:
+ * suggest commands as you type (inspired by the fish shell)
+ * support pushd/popd (thanks @Spavid04)
+ * cd now behaves more similar to cmd.exe (thanks @Spavid04)
+
+Release 20230829:
+ * remove commands from the history with Ctrl-Alt-K
+ * support Emacs-style keybindings (Ctrl-N/P/F/B/E/A) in interactive Windows
+  (completion selection, dir history, incremental command search)
+
+Release 20230424:
+ * Abbreviate the user's "home dir" to "~" in the prompt and dir history
+ * Fix SVN prompt (broken after upgrade to Python3)
+ * Avoid altering the "DLL directory" for spawned commands
+ * Linux port [experimental]
+
+Release 20230202:
+ * Ctrl-R for incrementally searching the command history
+ * Alt-D now opens the directory history in an interactive, searchable
+   Window
+
+Release 20230114:
+ * Fixed crash when cd-ing to inexistent directory
+
+Release 20230107:
+ * The PyCmd source code has been ported to Python3 (thanks github.com/UFO for
+   the help). WARNING: this means that your custom init.py files might need
+   to be adapted!
+
+Release 20221113:
+ * DelayedExpansion is now ON by default (can be overriden with /V:OFF)
+ * %ERRORLEVEL% is now processed correctly
+ * ERRORLEVEL is shown in the default prompt (if != 0)
+
+Release 20200310:
  * zsh-style completions (displayed below prompt)
  
 Snapshot 20171215:

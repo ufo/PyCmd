@@ -1,6 +1,13 @@
-*.py[co]
-/build
-/PyCmd
+# leading `/' means at top level only
+/build/
+/PyCmd/
 /buildinfo.py
+/PyCmd-*-w??.zip
 /pycmd_public.html
-/*.zip
+/PyCmd.egg-info/
+
+# no leading `/' means anywhere
+*.pyc
+.ropeproject
+.idea
+semantic.cache

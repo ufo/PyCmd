@@ -51,6 +51,11 @@ def init():
     global pycmd_install_dir
     pycmd_install_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
 
+    # Apply global and user configurations
+    apply_settings(pycmd_install_dir + '\\init.py')
+    apply_settings(pycmd_data_dir + '\\init.py')
+    sanitize_settings()
+
     # Current state of the input (prompt, entered chars, history)
     global state
     state = InputState()
@@ -65,6 +70,15 @@ def init():
     dir_hist.index = len(dir_hist.locations) - 1
     dir_hist.visit_cwd()
 
+    # Read/initialize directory favorites.
+    global dir_favorites
+    dir_favorites = DirHistory()
+    dir_favorites.locations = behavior.directory_favorites
+    if not isinstance(dir_favorites.locations, list):
+        dir_favorites.locations = dir_favorites.locations.splitlines()
+    dir_favorites.locations = [d for d in dir_favorites.locations if d]  # Exclude blank lines
+    dir_favorites.index = len(dir_favorites.locations) - 1
+
     # Create temporary file
     global tmpfile
     (handle, tmpfile) = tempfile.mkstemp(dir = pycmd_data_dir + '\\tmp')
@@ -78,21 +92,6 @@ def deinit():
 
 def main():
     title_prefix = ""
-
-    # Apply global and user configurations
-    apply_settings(pycmd_install_dir + '\\init.py')
-    apply_settings(pycmd_data_dir + '\\init.py')
-    sanitize_settings()
-
-    # Read/initialize directory favorites.
-    # Code can't be placed in init() because of 'behavior.directory_favorites'.
-    global dir_favorites
-    dir_favorites = DirHistory()
-    dir_favorites.locations = behavior.directory_favorites
-    if not isinstance(dir_favorites.locations, list):
-        dir_favorites.locations = dir_favorites.locations.splitlines()
-    dir_favorites.locations = [d for d in dir_favorites.locations if d]  # Exclude blank lines
-    dir_favorites.index = len(dir_favorites.locations) - 1
 
     # Run an empty command to initialize environment
     os.environ['ERRORLEVEL'] = '0'

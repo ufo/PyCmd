@@ -165,6 +165,14 @@ def prompt_prefix():
     return ""
 
 
+def get_errorlevel():
+    if os.environ['ERRORLEVEL'] in ['0', '141']:
+        errorlevel = ''
+    else:
+        errorlevel = (':' + color.Back.RED + color.Fore.WHITE + os.environ['ERRORLEVEL']
+                      + color.Back.DEFAULT + color.Fore.DEFAULT + appearance.colors.prompt)
+    return errorlevel
+
 def windows_cmd_prompt():
     """
     Return a prompt similar to the default one of Windows cmd.exe.
@@ -172,7 +180,7 @@ def windows_cmd_prompt():
     path = os.getcwd()
     if py2:
         path = path.decode(sys.getfilesystemencoding())
-    return color.Fore.DEFAULT + path + '>'
+    return color.Fore.DEFAULT + path + get_errorlevel() + '>'
 
 
 def windows_cmd_prompt_short():
@@ -185,7 +193,7 @@ def windows_cmd_prompt_short():
     if py2:
         path = path.decode(sys.getfilesystemencoding())
     path = win32api.GetShortPathName(path)
-    return color.Fore.DEFAULT + path + '>'
+    return color.Fore.DEFAULT + path + get_errorlevel() + '>'
 
 
 def simple_prompt():

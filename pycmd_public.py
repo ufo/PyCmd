@@ -247,7 +247,7 @@ def git_prompt():
     finished, stdout, stderr = run('git status -b --porcelain -uno', appearance.cvs_timeout)
     if finished and not stderr:
         lines = stdout.split('\n')
-        match_branch = re.match('## (.+)\.\.\.(.+)?.*', lines[0])
+        match_branch = re.match(r'## (.+)\.\.\.(.+)?.*', lines[0])
         if not match_branch:
             finished, stdout, stderr = run('git describe --exact-match --tags HEAD',
                                            appearance.cvs_timeout)
@@ -261,7 +261,7 @@ def git_prompt():
         if match_branch:
             branch_name = match_branch.group(1)
             ahead = behind = ''
-            match_ahead_behind = re.match('## .* \[(ahead (\d+))?(, )?(behind (\d+))?\]', lines[0])
+            match_ahead_behind = re.match(r'## .* \[(ahead (\d+))?(, )?(behind (\d+))?\]', lines[0])
             if match_ahead_behind:
                 ahead = match_ahead_behind.group(2)
                 behind = match_ahead_behind.group(5)

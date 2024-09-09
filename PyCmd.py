@@ -24,11 +24,15 @@ from common import apply_settings, sanitize_settings
 
 py2 = sys.version_info[0] == 2
 
+if py2:
+    FileNotFoundError = IOError
+    PermissionError = OSError
 
 pycmd_data_dir = None
 pycmd_install_dir = None
 state = None
 dir_hist = None
+dir_favorites = None
 pushd_stack = []
 tmpfile = None
 
@@ -321,7 +325,7 @@ def main():
                     auto_select = False
                 elif rec.Char == chr(10):                # Ctrl-Enter
                     state.handle(ActionCode.ACTION_END)          # Emulate "End"
-                    write_input(rec.VirtualKeyCode, chr(13), 0)  # followed by "Enter"
+                    write_input(rec.VirtualKeyCode, u'\r', 0)  # followed by "Enter"
                     continue
             elif is_alt_pressed(rec) and not is_ctrl_pressed(rec) and not is_shift_pressed(rec):      # Alt-Something
                 if rec.VirtualKeyCode in [37, 39] + list(range(49, 59)):
@@ -619,7 +623,10 @@ def internal_cd(args):
         stderr.write('The system cannot find the path specified: %s\n' % error.filename)
         os.environ['ERRORLEVEL'] = '1'
     except PermissionError as error:
-        stderr.write('Access is denied: %s\n' % error.filename)
+        if py2:
+            stderr.write(str(error).replace('\\\\', '\\') + '\n')
+        else:
+            stderr.write('Access is denied: %s\n' % error.filename)
         os.environ['ERRORLEVEL'] = '1'
     except OSError as error:
         stderr.write(str(error).replace('\\\\', '\\') + '\n')

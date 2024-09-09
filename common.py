@@ -252,10 +252,10 @@ def fuzzy_match(substr, str, prefix_only = False):
     substr). The prefix_only option only matches "words" in the substr at
     word boundaries in str.
     """
-    #print '\n\nMatch "' + substr + '" in "' + str + '"\n\n'
+    #print('\n\nMatch "' + substr + '" in "' + str + '"\n\n')
     words = substr.split(' ')
     pattern = [('\\b' if prefix_only else '') + '(' + re.escape(word) + ').*' for word in words]
-    # print '\n\n', pattern, '\n\n'
+    # print('\n\n', pattern, '\n\n')
     pattern = ''.join(pattern)
     matches = re.search(pattern, str, re.IGNORECASE)
     return [matches.span(i) for i in range(1, len(words) + 1)] if matches else []
@@ -352,7 +352,7 @@ def full_executable_path(app_unicode):
         paths_to_search = [os.getcwd()] + os.environ['PATH'].split(os.pathsep)
 
     # Search for an app
-    # print 'D:', paths_to_search, 'N:', name, 'E:', extensions_to_search
+    # print('D:', paths_to_search, 'N:', name, 'E:', extensions_to_search)
     for p in paths_to_search:
         for e in extensions_to_search:
             full_path = os.path.join(p, name) + e

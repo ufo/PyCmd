@@ -6,12 +6,12 @@
 
 from __future__ import print_function
 
-import sys, os, re
+import sys, os, re, time
 from common import tokenize, expand_env_vars, has_exec_extension, strip_extension
 from common import contains_special_char, starts_with_special_char
 from common import sep_chars, seq_tokens
 
-def complete_file(line):
+def complete_file(line, timeout=None):
     """
     Complete names of files and/or directories
 
@@ -28,14 +28,17 @@ def complete_file(line):
        a) the updated line (includes the completed suffix and quotes if needed) 
        b) and a list of possible subsequent completions
     """
-    (completed, completions) = complete_file_simple(line)
+    start = time.time()
+    (completed, completions) = complete_file_simple(line, timeout)
     if completed == line and completions == []:
         # Try the alternate completion
-        (completed, completions) = complete_file_alternate(line)
+        if timeout is not None:
+            timeout -= time.time() - start
+        (completed, completions) = complete_file_alternate(line, timeout)
 
     return (completed, completions)
 
-def complete_file_simple(line):
+def complete_file_simple(line, timeout=None):
     """
     Complete names of files or directories
     This function tokenizes the line and computes file and directory
@@ -69,11 +72,15 @@ def complete_file_simple(line):
     # This is the wildcard matcher used throughout the function
     matcher = wildcard_to_regex(prefix + '*')
 
+    start = time.time()
     completions = []
     if os.path.isdir(dir_to_complete):
         try:
-            completions = [elem for elem in os.scandir(dir_to_complete)
-                           if matcher.match(elem.name)]
+            for elem in  os.scandir(dir_to_complete):
+                if matcher.match(elem.name):
+                    completions.append(elem)
+                if timeout is not None and time.time() - start > timeout:
+                    return (line, [])
         except OSError:
             # Cannot complete, probably access denied
             pass
@@ -186,7 +193,7 @@ def complete_file_simple(line):
         return (line, [])
 
 
-def complete_file_alternate(line):
+def complete_file_alternate(line, timeout=None):
     """
     Complete names of files or directories using an alternate tokenization
 
@@ -225,11 +232,15 @@ def complete_file_alternate(line):
     # This is the wildcard matcher used throughout the function
     matcher = wildcard_to_regex(prefix + '*')
 
+    start = time.time()
     completions = []
     if os.path.isdir(dir_to_complete):
         try:
-            completions = [elem for elem in os.scandir(dir_to_complete)
-                           if matcher.match(elem.name)]
+            for elem in  os.scandir(dir_to_complete):
+                if matcher.match(elem.name):
+                    completions.append(elem)
+                if timeout is not None and time.time() - start > timeout:
+                    return (line, [])
         except OSError:
             # Cannot complete, probably access denied
             pass
